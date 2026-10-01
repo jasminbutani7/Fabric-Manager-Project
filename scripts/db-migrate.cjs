@@ -53,9 +53,9 @@ if (!dbPassword) {
 const projectRefMatch = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
 const projectRef = projectRefMatch ? projectRefMatch[1] : '';
 
-const sqlPath = path.resolve(__dirname, '../supabase-schema.sql');
+const sqlPath = path.resolve(__dirname, '../backend/database/schema.sql');
 if (!fs.existsSync(sqlPath)) {
-  console.error('Error: supabase-schema.sql not found at', sqlPath);
+  console.error('Error: schema.sql not found at', sqlPath);
   process.exit(1);
 }
 

@@ -13,7 +13,6 @@ dist-ssr
 *.local
 .env
 .env.*
-!.env.example
 scripts/.env*
 !scripts/.env.server.example
 

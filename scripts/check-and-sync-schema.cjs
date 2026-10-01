@@ -25,8 +25,8 @@ const dbPassword = getEnvValue('SUPABASE_DB_PASSWORD');
 const projectRefMatch = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
 const projectRef = projectRefMatch ? projectRefMatch[1] : '';
 
-// Parse expected tables and columns from supabase-schema.sql
-const schemaPath = path.resolve(__dirname, '../supabase-schema.sql');
+// Parse expected tables and columns from backend/database/schema.sql
+const schemaPath = path.resolve(__dirname, '../backend/database/schema.sql');
 const schemaContent = fs.readFileSync(schemaPath, 'utf8');
 
 function parseExpectedSchema(sql) {
