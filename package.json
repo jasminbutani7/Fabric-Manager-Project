@@ -12,12 +12,16 @@
     "typecheck": "tsc --noEmit",
     "check:all": "npm run lint && npm run typecheck && npm test && npm run build",
     "preview": "vite preview",
+    "server:dev": "node backend/server.cjs",
+    "server:start": "node backend/server.cjs",
     "db:check": "node scripts/db-check.cjs",
     "db:migrate": "node scripts/db-migrate.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
     "@tailwindcss/vite": "^4.3.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "html2canvas-pro": "^2.5.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.41.0",

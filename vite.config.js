@@ -14,8 +14,14 @@ export default defineConfig({
     port: 3000,
     allowedHosts: true,
     cors: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
     watch: {
-      ignored: ['**/.sf/**', '**/.sfdx/**', '**/test-results/**', '**/playwright-report/**'],
+      ignored: ['**/.sf/**', '**/.sfdx/**', '**/test-results/**', '**/playwright-report/**', '**/backend/**'],
     },
   },
   resolve: {
