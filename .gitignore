@@ -37,3 +37,6 @@ playwright/.cache/
 .sf/
 .sfdx/
 
+# Scratch temporary files
+scratch/
+

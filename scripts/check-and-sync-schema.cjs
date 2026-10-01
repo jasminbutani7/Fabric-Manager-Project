@@ -44,7 +44,7 @@ function parseExpectedSchema(sql) {
     for (let line of lines) {
       line = line.trim().replace(/,$/, '');
       if (!line || line.startsWith('--') || line.startsWith('CONSTRAINT') || line.startsWith('PRIMARY KEY')) continue;
-      const colMatch = line.match(/^([a-zA-Z0-9_]+)\s+([A-Z]+(?:\([^\)]+\))?)/i);
+      const colMatch = line.match(/^([a-zA-Z0-9_]+)\s+([A-Z]+(?:\([^)]+\))?)/i);
       if (colMatch) {
         tables[tableName].add(colMatch[1].toLowerCase());
       }
@@ -124,8 +124,6 @@ async function runCheck() {
   }
 
   console.log('\n--- COLUMN COMPARISON PER TABLE ---');
-  let hasMissingCols = false;
-  let hasExtraCols = false;
   const missingColActions = [];
   const extraColReport = [];
 
@@ -139,12 +137,10 @@ async function runCheck() {
     console.log(`\nTable: [${t}]`);
     console.log(`  Live Columns (${liveCols.length}): ${liveCols.join(', ')}`);
     if (missingInDb.length > 0) {
-      hasMissingCols = true;
       console.log(`  ❌ Missing in DB (${missingInDb.length}): ${missingInDb.join(', ')}`);
       missingColActions.push({ table: t, missing: missingInDb });
     }
     if (extraInDb.length > 0) {
-      hasExtraCols = true;
       console.log(`  ⚠️  Extra in DB (${extraInDb.length}): ${extraInDb.join(', ')}`);
       extraColReport.push({ table: t, extra: extraInDb });
     }
