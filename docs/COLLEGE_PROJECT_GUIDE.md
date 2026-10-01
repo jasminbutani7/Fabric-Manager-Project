@@ -36,14 +36,15 @@ Small-to-medium apparel manufacturing units struggle with fragmented paper job s
          ▼               ▼                                             ▼               ▼
    ┌───────────┐   ┌───────────┐                                 ┌───────────┐   ┌───────────┐
    │ STUDENT 1 │   │ STUDENT 2 │                                 │ STUDENT 3 │   │ STUDENT 4 │
-   │  UI / UX  │   │ State /   │                                 │ Database  │   │ REST API  │
-   │  & Views  │   │ Portals   │                                 │ & Schema  │   │ & Security│
+   │ (Nandni)  │   │  (Tisha)  │                                 │ (Jasmin)  │   │ (Sharad)  │
+   │  UI / UX  │   │  State /  │                                 │ Database  │   │ REST API  │
+   │  & Views  │   │  Portals  │                                 │ & Schema  │   │ & Security│
    └───────────┘   └───────────┘                                 └───────────┘   └───────────┘
 ```
 
 ---
 
-### STUDENT 1: Frontend UI/UX, Component Architecture & Modals
+### STUDENT 1 (Nandni): Frontend UI/UX, Component Architecture & Modals
 - **Role Title**: Lead Frontend Interface & Presentation Engineer
 - **Core Modules**:
   - Global Navigation & Layouts: [`src/components/layout/Navbar.jsx`](file:///d:/Fabric%20Manager/src/components/layout/Navbar.jsx), `Sidebar.jsx`, `ThemeToggle.jsx`.
@@ -54,7 +55,7 @@ Small-to-medium apparel manufacturing units struggle with fragmented paper job s
 
 ---
 
-### STUDENT 2: Frontend State Management, Multi-Role Portals & Client Logic
+### STUDENT 2 (Tisha): Frontend State Management, Multi-Role Portals & Client Logic
 - **Role Title**: Frontend Systems & Client Application Architect
 - **Core Modules**:
   - Domain-Driven State Contexts: [`src/context/ManagementContext.jsx`](file:///d:/Fabric%20Manager/src/context/ManagementContext.jsx), [`src/context/domain/useFactoryOperations.js`](file:///d:/Fabric%20Manager/src/context/domain/useFactoryOperations.js), `useFinancials.js`, `useFactorySetup.js`.
@@ -66,7 +67,7 @@ Small-to-medium apparel manufacturing units struggle with fragmented paper job s
 
 ---
 
-### STUDENT 3: Database Engineering, PostgreSQL Architecture & RLS
+### STUDENT 3 (Jasmin): Database Engineering, PostgreSQL Architecture & RLS
 - **Role Title**: Database Administrator & Relational Data Architect
 - **Core Modules**:
   - Relational Schema (16 Tables): [`backend/database/schema.sql`](file:///d:/Fabric%20Manager/backend/database/schema.sql).
@@ -78,7 +79,7 @@ Small-to-medium apparel manufacturing units struggle with fragmented paper job s
 
 ---
 
-### STUDENT 4: Backend REST API Server, Business Controllers & Security
+### STUDENT 4 (Sharad): Backend REST API Server, Business Controllers & Security
 - **Role Title**: Backend API Engineer & Security Specialist
 - **Core Modules**:
   - Express.js REST API Server: [`backend/server.cjs`](file:///d:/Fabric%20Manager/backend/server.cjs).
