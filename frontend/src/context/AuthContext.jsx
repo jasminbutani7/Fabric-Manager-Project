@@ -513,6 +513,48 @@ export function AuthProvider({ children }) {
       throw new Error('Please enter a valid email address.');
     }
 
+    // 1. Try Backend REST API (with Gmail SMTP / NodeMailer)
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Store in sessionStorage as backup
+        if (data.demoOtp) {
+          try {
+            const otpRecords = JSON.parse(sessionStorage.getItem('fm_admin_otps') || '{}');
+            otpRecords[cleanEmail] = { otp: data.demoOtp, expiresAt: Date.now() + OTP_EXPIRY_MS };
+            sessionStorage.setItem('fm_admin_otps', JSON.stringify(otpRecords));
+          } catch {}
+        }
+
+        return {
+          success: true,
+          email: cleanEmail,
+          message: data.message,
+          simulated: data.simulated,
+          demoOtp: data.demoOtp,
+        };
+      }
+
+      // If user not found or validation error from backend, throw specific error
+      if (!response.ok && data.error) {
+        throw new Error(data.error);
+      }
+    } catch (apiErr) {
+      // If error was explicitly returned by backend, rethrow it
+      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('Failed to fetch')) {
+        throw apiErr;
+      }
+      console.warn('Backend /api/auth/forgot-password unavailable, using client fallback:', apiErr.message);
+    }
+
+    // 2. Client-side Fallback (if backend is offline or standalone)
     if (isSupabaseConfigured && supabase) {
       const { data: checkData, error: checkErr } = await supabase.rpc('request_password_reset_check', {
         p_email: cleanEmail,
@@ -554,6 +596,8 @@ export function AuthProvider({ children }) {
       email: cleanEmail,
       emailSent,
       demoOtp: generatedOtp,
+      simulated: true,
+      message: 'OTP verification code generated.',
     };
   };
 
@@ -565,6 +609,35 @@ export function AuthProvider({ children }) {
       throw new Error('Please enter the complete 6-digit OTP code.');
     }
 
+    // 1. Try Backend REST API verification
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, otp: token }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        sessionStorage.setItem(
+          'fm_admin_verified_otp',
+          JSON.stringify({ email: cleanEmail, otp: token, expiresAt: Date.now() + 15 * 60 * 1000 })
+        );
+        return { success: true };
+      }
+
+      if (!response.ok && data.error) {
+        throw new Error(data.error);
+      }
+    } catch (apiErr) {
+      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('Failed to fetch')) {
+        throw apiErr;
+      }
+      console.warn('Backend /api/auth/verify-otp unavailable, using client fallback:', apiErr.message);
+    }
+
+    // 2. Client-side Fallback
     let localMatched = false;
     try {
       const otpRecords = JSON.parse(sessionStorage.getItem('fm_admin_otps') || '{}');
@@ -592,7 +665,10 @@ export function AuthProvider({ children }) {
       throw new Error('Invalid or expired OTP code. Please check your email or request a new code.');
     }
 
-    sessionStorage.setItem('fm_admin_verified_otp', JSON.stringify({ email: cleanEmail, expiresAt: Date.now() + 15 * 60 * 1000 }));
+    sessionStorage.setItem(
+      'fm_admin_verified_otp',
+      JSON.stringify({ email: cleanEmail, otp: token, expiresAt: Date.now() + 15 * 60 * 1000 })
+    );
     return { success: true };
   };
 
@@ -604,10 +680,12 @@ export function AuthProvider({ children }) {
 
     // Require verified OTP session proof
     let isOtpProofValid = false;
+    let savedOtp = '';
     try {
       const verified = JSON.parse(sessionStorage.getItem('fm_admin_verified_otp') || '{}');
       if (verified && verified.email === cleanEmail && Date.now() <= verified.expiresAt) {
         isOtpProofValid = true;
+        savedOtp = verified.otp || '';
       }
     } catch {}
 
@@ -615,6 +693,33 @@ export function AuthProvider({ children }) {
       throw new Error('Verification required. Please verify the email OTP code first.');
     }
 
+    // 1. Try Backend REST API
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, newPassword, otp: savedOtp }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        sessionStorage.removeItem('fm_admin_verified_otp');
+        sessionStorage.removeItem('fm_admin_otps');
+        return { success: true, message: data.message };
+      }
+
+      if (!response.ok && data.error) {
+        throw new Error(data.error);
+      }
+    } catch (apiErr) {
+      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('Failed to fetch')) {
+        throw apiErr;
+      }
+      console.warn('Backend /api/auth/reset-password unavailable, using client fallback:', apiErr.message);
+    }
+
+    // 2. Client-side Fallback
     const encrypted = await encryptPassword(newPassword);
 
     if (isSupabaseConfigured && supabase) {

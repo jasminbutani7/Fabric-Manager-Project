@@ -77,6 +77,16 @@ npm run server:dev
 - `POST /api/auth/register`: Create a new business admin with PBKDF2 encrypted password.
 - `POST /api/auth/login`: Authenticate admin with mobile and password.
 - `POST /api/auth/verify-pin`: Authenticate mobile floor workers (Master, Tailor, Helper) using PIN.
+- `POST /api/auth/forgot-password`: Validate admin email, generate cryptographically random 6-digit OTP, send branded HTML email via Gmail SMTP (or simulated fallback in dev).
+- `POST /api/auth/verify-otp`: Validate 6-digit OTP against expiration window (10 minutes).
+- `POST /api/auth/reset-password`: Verify valid OTP session proof, hash new password via PBKDF2, and update PostgreSQL database.
+
+### Email Service (`backend/services/emailService.cjs`)
+- **Transport**: `nodemailer` with Gmail SMTP (`smtp.gmail.com:465` SSL).
+- **Credentials**: Read from `SMTP_USER` and `SMTP_PASS` (16-character Google App Password) in `.env`.
+- **Branding**: Responsive HTML email with brand gradient banner, large OTP display card, and 10-minute expiry warning.
+- **Smart Fallback**: If App Password is not yet configured, automatically enters developer simulation mode, logging the OTP to the console and returning it to the frontend so development and testing never stall.
+
 
 ### Inventory (`/api/inventory`)
 - `GET /api/inventory/fabrics?user_id={id}`: Fetch all active fabric lots.
