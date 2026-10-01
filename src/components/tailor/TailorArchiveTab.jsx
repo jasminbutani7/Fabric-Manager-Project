@@ -25,6 +25,7 @@ import {
 } from '../../utils/tailorHelpers';
 import { groupItemsByLot } from '../../utils/lotGrouping';
 import LotGroupHeader from '../orders/LotGroupHeader';
+import PaginationControls from '../common/PaginationControls';
 
 export default function TailorArchiveTab({
   archivedAssignments = [],
@@ -37,6 +38,8 @@ export default function TailorArchiveTab({
   tailorAssignments = [],
   toggleArchiveTailorAssignment,
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [logStatusFilter, setLogStatusFilter] = useState('all'); // 'all' | 'verified' | 'rejected'
   const [collapsedOrderLots, setCollapsedOrderLots] = useState(() => new Set());
   const [collapsedLogLots, setCollapsedLogLots] = useState(() => new Set());
@@ -61,6 +64,19 @@ export default function TailorArchiveTab({
     () => groupItemsByLot(displayedArchivedSubmissions, fabrics, cuttings),
     [displayedArchivedSubmissions, fabrics, cuttings]
   );
+
+  const { currentItems, totalItems, totalPages } = useMemo(() => {
+    const list = archiveSubFilter === 'logs' ? groupedArchivedSubmissions : groupedArchivedAssignments;
+    const total = list.length;
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(currentPage, pages);
+    const from = (safePage - 1) * pageSize;
+    return {
+      currentItems: list.slice(from, from + pageSize),
+      totalItems: total,
+      totalPages: pages,
+    };
+  }, [archiveSubFilter, groupedArchivedSubmissions, groupedArchivedAssignments, currentPage, pageSize]);
 
   // Order lot collapse/expand helpers
   const isAllOrderLotsCollapsed =
@@ -525,6 +541,7 @@ export default function TailorArchiveTab({
           <button
             type="button"
             onClick={() => {
+              setCurrentPage(1);
               if (setArchiveSubFilter) setArchiveSubFilter('orders');
             }}
             className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${archiveSubFilter === 'orders'
@@ -538,6 +555,7 @@ export default function TailorArchiveTab({
           <button
             type="button"
             onClick={() => {
+              setCurrentPage(1);
               if (setArchiveSubFilter) setArchiveSubFilter('logs');
             }}
             className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${archiveSubFilter === 'logs'
@@ -579,7 +597,7 @@ export default function TailorArchiveTab({
             </div>
           ) : (
             <div className="space-y-3">
-              {groupedArchivedAssignments.map((group) => {
+              {currentItems.map((group) => {
                 const isCollapsed = collapsedOrderLots.has(group.lotKey);
                 let lotCompletedPSC = 0;
                 let lotTotalPSC = 0;
@@ -632,7 +650,10 @@ export default function TailorArchiveTab({
               <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80 w-fit flex-wrap">
                 <button
                   type="button"
-                  onClick={() => setLogStatusFilter('all')}
+                  onClick={() => {
+                    setCurrentPage(1);
+                    setLogStatusFilter('all');
+                  }}
                   className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                     logStatusFilter === 'all'
                       ? 'bg-white text-slate-900 shadow-2xs font-extrabold ring-1 ring-black/5'
@@ -643,7 +664,10 @@ export default function TailorArchiveTab({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLogStatusFilter('verified')}
+                  onClick={() => {
+                    setCurrentPage(1);
+                    setLogStatusFilter('verified');
+                  }}
                   className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                     logStatusFilter === 'verified'
                       ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
@@ -656,7 +680,10 @@ export default function TailorArchiveTab({
                 {rejectedArchivedSubs.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setLogStatusFilter('rejected')}
+                    onClick={() => {
+                      setCurrentPage(1);
+                      setLogStatusFilter('rejected');
+                    }}
                     className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                       logStatusFilter === 'rejected'
                         ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
@@ -696,7 +723,7 @@ export default function TailorArchiveTab({
             </div>
           ) : (
             <div className="space-y-3">
-              {groupedArchivedSubmissions.map((group) => {
+              {currentItems.map((group) => {
                 const isCollapsed = collapsedLogLots.has(group.lotKey);
                 let lotTotalQty = 0;
                 let lotTotalEarned = 0;
@@ -754,6 +781,21 @@ export default function TailorArchiveTab({
           )}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setCurrentPage(1);
+        }}
+        pageSizeOptions={[10, 15, 30, 50]}
+        theme="indigo"
+      />
     </div>
   );
 }

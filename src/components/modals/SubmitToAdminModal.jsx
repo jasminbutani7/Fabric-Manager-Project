@@ -538,7 +538,6 @@ function SubmitToAdminDialog({ onClose, cutting: initialCutting, fabric, master,
 
   const partNumberValues = relevantSubParts.map((sp) => combinedSubParts[sp.id] || 0);
   const minPartEntered = relevantSubParts.length > 0 && partNumberValues.length > 0 ? Math.min(...partNumberValues) : 0;
-  const hasMultipleParts = relevantSubParts.length > 1;
 
   const handleSubmit = (e) => {
     e.preventDefault();

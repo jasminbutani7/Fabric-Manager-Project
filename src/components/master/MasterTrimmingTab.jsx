@@ -86,14 +86,16 @@ export default function MasterTrimmingTab({
   const readyToTrimPSC = Math.max(0, totalStitchedFromTailors - totalAssignedToTrimming);
 
   // Filtered jobs list
-  const filteredJobs = masterThreadJobs.filter((tc) => {
-    const isSkip = tc.status === 'Skipped' || tc.actionType === 'skip';
-    if (filter === 'all') return true;
-    if (filter === 'Skipped') return isSkip;
-    if (filter === 'Completed') return !isSkip && tc.status === 'Completed';
-    if (filter === 'In Progress') return !isSkip && tc.status !== 'Completed';
-    return true;
-  });
+  const filteredJobs = useMemo(() => {
+    return masterThreadJobs.filter((tc) => {
+      const isSkip = tc.status === 'Skipped' || tc.actionType === 'skip';
+      if (filter === 'all') return true;
+      if (filter === 'Skipped') return isSkip;
+      if (filter === 'Completed') return !isSkip && tc.status === 'Completed';
+      if (filter === 'In Progress') return !isSkip && tc.status !== 'Completed';
+      return true;
+    });
+  }, [masterThreadJobs, filter]);
 
   // Group trimming jobs by Fabric Lot (matching Admin Portal design)
   const groupedJobs = useMemo(

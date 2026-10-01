@@ -73,6 +73,7 @@ export default function Invoices({ embedded = false }) {
   // Modals state
   const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false);
   const [invoiceToEdit, setInvoiceToEdit] = useState(null);
+  const [selectedFabricForInvoice, setSelectedFabricForInvoice] = useState(null);
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState(null);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
 
@@ -87,10 +88,6 @@ export default function Invoices({ embedded = false }) {
     confirmText: 'OK',
     onConfirm: null,
   });
-
-  // Lot Completion Invoice modal state
-  const [showLotInvoiceModal, setShowLotInvoiceModal] = useState(false);
-  const [selectedFabricForLotInvoice, setSelectedFabricForLotInvoice] = useState(null);
 
   // Fabric lots ready for billing that do not have an invoice yet
   const completedFabricLots = useMemo(() => {
@@ -501,8 +498,8 @@ export default function Invoices({ embedded = false }) {
                   key={f.id}
                   type="button"
                   onClick={() => {
-                    setSelectedFabricForLotInvoice(f.id);
-                    setShowLotInvoiceModal(true);
+                    setSelectedFabricForInvoice(f.id);
+                    setShowAddInvoiceModal(true);
                   }}
                   className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
                 >
@@ -943,8 +940,10 @@ export default function Invoices({ embedded = false }) {
           onClose={() => {
             setShowAddInvoiceModal(false);
             setInvoiceToEdit(null);
+            setSelectedFabricForInvoice(null);
           }}
           invoiceToEdit={invoiceToEdit}
+          initialFabricId={selectedFabricForInvoice}
         />
       )}
 

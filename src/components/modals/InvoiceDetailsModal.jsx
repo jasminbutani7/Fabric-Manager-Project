@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Printer,
@@ -38,20 +38,16 @@ export default function InvoiceDetailsModal({
   const { invoices = [] } = useFinance();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [viewMode, setViewMode] = useState('standard'); // 'standard' | 'thermal'
-
-  const [localInvoice, setLocalInvoice] = useState(invoice);
-
-  useEffect(() => {
-    setLocalInvoice(invoice);
-  }, [invoice]);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [paymentOverride, setPaymentOverride] = useState(null);
 
   if (!isOpen || !invoice) return null;
 
-  // Auto-sync with live finance context or local state updates
+  // Auto-sync with live finance context or invoice prop
+  const liveInvoice = invoice?.id ? invoices.find((inv) => inv.id === invoice.id) : null;
   const effectiveInvoice =
-    (localInvoice?.id ? invoices.find((inv) => inv.id === localInvoice.id) : null) ||
-    (invoice?.id ? invoices.find((inv) => inv.id === invoice.id) : null) ||
-    localInvoice ||
+    (paymentOverride?.id === invoice?.id ? paymentOverride : null) ||
+    liveInvoice ||
     invoice;
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -69,8 +65,6 @@ export default function InvoiceDetailsModal({
   const taxAmount = parseFloat(effectiveInvoice.taxAmount) || 0;
   const isOverdue =
     effectiveInvoice.dueDate && effectiveInvoice.dueDate < todayStr && pendingAmount > 0;
-
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const handleDownloadPdf = async () => {
     try {
@@ -523,7 +517,7 @@ export default function InvoiceDetailsModal({
         onClose={() => setShowPaymentModal(false)}
         invoice={effectiveInvoice}
         onSuccess={(updated) => {
-          setLocalInvoice(updated);
+          setPaymentOverride(updated);
           if (onRecordPaymentSuccess) onRecordPaymentSuccess(updated);
           setShowPaymentModal(false);
         }}

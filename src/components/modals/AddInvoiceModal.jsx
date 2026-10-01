@@ -9,7 +9,6 @@ import {
   Calendar,
   Clock,
   AlertTriangle,
-  Scissors,
   Package,
   Calculator,
   RefreshCw,

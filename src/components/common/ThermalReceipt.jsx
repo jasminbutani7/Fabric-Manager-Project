@@ -11,13 +11,15 @@ const formatCurrency = (val) => {
  * Renders an 80mm / 3-inch POS thermal receipt layout.
  * Optimized for standard ESC/POS 80mm thermal roll printers and PDF receipt export.
  */
+const EMPTY_OBJECT = Object.freeze({});
+
 export default function ThermalReceipt({
   invoice,
   currentUser,
   deliveryLog,
 }) {
   const isInvoice = Boolean(invoice);
-  const data = invoice || deliveryLog || {};
+  const data = invoice || deliveryLog || EMPTY_OBJECT;
 
   const totalAmount = parseFloat(data.totalAmount) || 0;
   const paidAmount = parseFloat(data.paidAmount) || 0;

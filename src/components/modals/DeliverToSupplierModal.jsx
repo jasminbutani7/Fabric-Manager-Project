@@ -10,7 +10,6 @@ import {
   Clock,
   Phone,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 import { useFabric, useFactory, useProduction, useFinance } from '../../context/useManagement';
 import AlertModal from './AlertModal';
@@ -63,12 +62,6 @@ export default function DeliverToSupplierModal({
       (currentCutting && tc.cuttingId === currentCutting.id)
   );
 
-  const linkedHandovers = masterHandovers.filter(
-    (mh) =>
-      mh.fabricId === effectiveFabric?.id ||
-      (currentCutting && mh.cuttingId === currentCutting.id)
-  );
-
   const readySetData = calculateReadyProductSets(effectiveFabric, {
     cuttings,
     masterHandovers,
@@ -79,26 +72,8 @@ export default function DeliverToSupplierModal({
 
   const {
     readyProductsCount,
-    missingSubParts,
     totalVerifiedPieces,
-    alreadyDeliveredPieces = 0,
   } = readySetData;
-
-  const verifiedHandoverPSC = Math.max(
-    0,
-    linkedHandovers
-      .filter((mh) => mh.status === 'Verified')
-      .reduce((sum, mh) => sum + (parseInt(mh.pieces || mh.piecesCount || mh.pieces_count, 10) || 0), 0) -
-    alreadyDeliveredPieces
-  );
-
-  const trimmedCompletedPSC = linkedThreadJobs
-    .filter((tc) => tc.status === 'Completed')
-    .reduce(
-      (sum, tc) =>
-        sum + (parseInt(tc.completedPieces ?? tc.completedPSC ?? tc.assignedPieces ?? tc.assignedPSC, 10) || 0),
-      0
-    );
 
   const threadJob =
     threadCuttingAssignments.find((tc) => tc.id === initialThreadJobId) ||
@@ -308,11 +283,6 @@ export default function DeliverToSupplierModal({
     };
   })();
 
-  const subtotal = setCalculation.subtotal;
-  const discountedSub = Math.max(0, subtotal - discountNum);
-  const taxAmt = Math.round((discountedSub * taxPctNum) / 100);
-  const totalAmount = discountedSub + taxAmt;
-
   const deliveredBreakdownSummary = (() => {
     if (configuredSubParts.length === 0) {
       return `${pscNum} PCs`;
@@ -498,13 +468,6 @@ export default function DeliverToSupplierModal({
       });
       setSubPartDeliveries(stringifiedParts);
     }
-  };
-
-  const handleQuickAddPSC = (step) => {
-    const cur = parseInt(deliveredPSC, 10) || 0;
-    const maxVal = maxDeliverable > 0 ? maxDeliverable : 100000;
-    const next = Math.max(0, Math.min(maxVal, cur + step));
-    handleDeliveredPSCChange(String(next));
   };
 
   const handleSubmit = (e) => {

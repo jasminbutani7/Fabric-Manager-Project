@@ -125,6 +125,42 @@ async function checkDatabase() {
     console.log('\n--- VERIFIED NEW COLUMNS ---');
     console.table(newColumnsRes.rows);
 
+    const rlsRes = await client.query(`
+      SELECT
+        c.relname AS table_name,
+        c.relrowsecurity AS rls_enabled,
+        count(p.polname)::int AS policy_count
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      LEFT JOIN pg_policy p ON p.polrelid = c.oid
+      WHERE n.nspname = 'public'
+        AND c.relkind = 'r'
+      GROUP BY c.relname, c.relrowsecurity
+      ORDER BY c.relname;
+    `);
+
+    console.log('\n--- ROW LEVEL SECURITY (RLS) & TENANT POLICIES ---');
+    console.table(rlsRes.rows);
+
+    const domainTables = [
+      'users', 'masters', 'machines', 'tailors', 'helpers', 'suppliers',
+      'fabrics', 'cuttings', 'tailor_assignments', 'master_handovers',
+      'thread_cutting_assignments', 'delivery_logs', 'expenses', 'invoices',
+      'invoice_expenses', 'product_templates'
+    ];
+
+    const unprotectedDomain = rlsRes.rows.filter(
+      (r) => domainTables.includes(r.table_name) && (!r.rls_enabled || r.policy_count === 0)
+    );
+
+    if (unprotectedDomain.length > 0) {
+      console.warn('\n⚠️ WARNING: Found domain tables missing RLS or policies:');
+      unprotectedDomain.forEach((t) => console.warn(`   - ${t.table_name} (RLS: ${t.rls_enabled}, Policies: ${t.policy_count})`));
+      console.warn('   Run "npm run db:migrate" to apply tenant isolation policies.');
+    } else {
+      console.log('✓ All domain tables have Row Level Security enabled with active isolation policies.');
+    }
+
     await client.end();
   } catch (err) {
     console.error('✗ Query failed:', err.message);

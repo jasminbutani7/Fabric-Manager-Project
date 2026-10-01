@@ -3,13 +3,11 @@ import {
   X,
   Scissors,
   IndianRupee,
-  Briefcase,
   Calendar,
   FileText,
   AlertTriangle,
   Plus,
   Layers,
-  DollarSign,
   Truck,
 } from 'lucide-react';
 import { useFabric, useFactory, useProduction } from '../../context/useManagement';

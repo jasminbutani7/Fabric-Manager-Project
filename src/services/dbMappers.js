@@ -369,8 +369,8 @@ export const mapFabricToDb = (f, userId) => {
     skipped_trimming_logs: f.skippedTrimmingLogs || f.skipped_trimming_logs || null,
     sub_parts_delivered: f.subPartsDelivered || f.sub_parts_delivered || null,
     is_archived: Boolean(f.isArchived ?? f.is_archived),
-    archived_at: Boolean(f.isArchived ?? f.is_archived) ? (f.archivedAt || f.archived_at || new Date().toISOString()) : null,
-    restored_at: !Boolean(f.isArchived ?? f.is_archived) ? (f.restoredAt || f.restored_at || null) : null,
+    archived_at: (f.isArchived ?? f.is_archived) ? (f.archivedAt || f.archived_at || new Date().toISOString()) : null,
+    restored_at: !(f.isArchived ?? f.is_archived) ? (f.restoredAt || f.restored_at || null) : null,
     created_at: f.createdAt || f.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -394,8 +394,8 @@ export const mapCuttingToDb = (c, userId) => ({
   notes: cleanNoteString(c.notes) || null,
   status: c.status || 'Active',
   is_archived: Boolean(c.isArchived ?? c.is_archived),
-  archived_at: Boolean(c.isArchived ?? c.is_archived) ? (c.archivedAt || c.archived_at || new Date().toISOString()) : null,
-  restored_at: !Boolean(c.isArchived ?? c.is_archived) ? (c.restoredAt || c.restored_at || null) : null,
+  archived_at: (c.isArchived ?? c.is_archived) ? (c.archivedAt || c.archived_at || new Date().toISOString()) : null,
+  restored_at: !(c.isArchived ?? c.is_archived) ? (c.restoredAt || c.restored_at || null) : null,
   created_at: c.createdAt || new Date().toISOString(),
   updated_at: new Date().toISOString(),
 });
@@ -429,8 +429,8 @@ export const mapAssignmentToDb = (a, userId) => {
     subPartRates: a.subPartRates || null,
     masterId: a.masterId || null,
     deletedSubmissionIds: a.deletedSubmissionIds || [],
-    archivedAt: Boolean(a.isArchived ?? a.is_archived) ? (a.archivedAt || a.archived_at || new Date().toISOString()) : null,
-    restoredAt: !Boolean(a.isArchived ?? a.is_archived) ? (a.restoredAt || a.restored_at || null) : null,
+    archivedAt: (a.isArchived ?? a.is_archived) ? (a.archivedAt || a.archived_at || new Date().toISOString()) : null,
+    restoredAt: !(a.isArchived ?? a.is_archived) ? (a.restoredAt || a.restored_at || null) : null,
   };
 
   const garmentPcsWithMeta = {
@@ -522,8 +522,8 @@ export const mapHandoverToDb = (h, userId) => {
     notes: cleanNotes || JSON.stringify(meta),
     status: h.status || 'Pending Verification',
     is_archived: Boolean(h.isArchived ?? h.is_archived),
-    archived_at: Boolean(h.isArchived ?? h.is_archived) ? (h.archivedAt || h.archived_at || new Date().toISOString()) : null,
-    restored_at: !Boolean(h.isArchived ?? h.is_archived) ? (h.restoredAt || h.restored_at || null) : null,
+    archived_at: (h.isArchived ?? h.is_archived) ? (h.archivedAt || h.archived_at || new Date().toISOString()) : null,
+    restored_at: !(h.isArchived ?? h.is_archived) ? (h.restoredAt || h.restored_at || null) : null,
     created_at: h.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -591,8 +591,8 @@ export const mapThreadAssignmentToDb = (tc, userId) => {
     total_estimated_amount: total,
     status: tc.status || (actionType === 'skip' ? 'Skipped' : 'In Progress'),
     is_archived: Boolean(tc.isArchived ?? tc.is_archived),
-    archived_at: Boolean(tc.isArchived ?? tc.is_archived) ? (tc.archivedAt || tc.archived_at || new Date().toISOString()) : null,
-    restored_at: !Boolean(tc.isArchived ?? tc.is_archived) ? (tc.restoredAt || tc.restored_at || null) : null,
+    archived_at: (tc.isArchived ?? tc.is_archived) ? (tc.archivedAt || tc.archived_at || new Date().toISOString()) : null,
+    restored_at: !(tc.isArchived ?? tc.is_archived) ? (tc.restoredAt || tc.restored_at || null) : null,
     notes: cleanNotes || JSON.stringify(meta),
     created_at: tc.createdAt || tc.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -821,7 +821,7 @@ export const mapLoadedFabric = (f) => {
     subPartsDelivered: validatedSubPartsDelivered,
     deliveryLogs: fabricDeliveryLogs,
     isArchived: Boolean(f.is_archived ?? f.isArchived),
-    archivedAt: Boolean(f.is_archived ?? f.isArchived) ? (f.archived_at || f.archivedAt || null) : null,
+    archivedAt: (f.is_archived ?? f.isArchived) ? (f.archived_at || f.archivedAt || null) : null,
     restoredAt: f.restored_at || f.restoredAt || null,
   };
 };
@@ -869,7 +869,7 @@ export const mapLoadedCutting = (c) => {
     productStructure: parsedStructure,
     product_structure: parsedStructure,
     isArchived: Boolean(c.is_archived ?? c.isArchived),
-    archivedAt: Boolean(c.is_archived ?? c.isArchived) ? (c.archived_at || c.archivedAt || null) : null,
+    archivedAt: (c.is_archived ?? c.isArchived) ? (c.archived_at || c.archivedAt || null) : null,
     restoredAt: c.restored_at || c.restoredAt || null,
   };
 };

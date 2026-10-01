@@ -20,6 +20,7 @@ import {
 import { getFabricTailorPscDetails } from '../../utils/masterHelpers';
 import { groupItemsByLot } from '../../utils/lotGrouping';
 import LotGroupHeader from '../orders/LotGroupHeader';
+import PaginationControls from '../common/PaginationControls';
 
 export default function MasterArchiveTab({
   archivedFabrics = [],
@@ -35,6 +36,9 @@ export default function MasterArchiveTab({
   setArchiveSubFilter,
   getMasterHandoverStats,
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
   // Group archived items by Fabric Lot
   const groupedArchivedCuttings = useMemo(
     () => groupItemsByLot(archivedCuttings, fabrics, cuttings),
@@ -48,6 +52,24 @@ export default function MasterArchiveTab({
     () => groupItemsByLot(archivedThreadJobs, fabrics, cuttings),
     [archivedThreadJobs, fabrics, cuttings]
   );
+
+  const { currentItems, totalItems, totalPages } = useMemo(() => {
+    let list = [];
+    if (archiveSubFilter === 'cuttings') list = groupedArchivedCuttings;
+    else if (archiveSubFilter === 'assignments') list = groupedArchivedAssignments;
+    else if (archiveSubFilter === 'trimming') list = groupedArchivedThreadJobs;
+    else list = archivedFabrics;
+
+    const total = list.length;
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(currentPage, pages);
+    const from = (safePage - 1) * pageSize;
+    return {
+      currentItems: list.slice(from, from + pageSize),
+      totalItems: total,
+      totalPages: pages,
+    };
+  }, [archiveSubFilter, groupedArchivedCuttings, groupedArchivedAssignments, groupedArchivedThreadJobs, archivedFabrics, currentPage, pageSize]);
 
   const [collapsedCuttingLots, setCollapsedCuttingLots] = useState(() => new Set());
   const [collapsedAssignmentLots, setCollapsedAssignmentLots] = useState(() => new Set());
@@ -415,7 +437,10 @@ export default function MasterArchiveTab({
             <button
               key={tab.id}
               type="button"
-              onClick={() => setArchiveSubFilter && setArchiveSubFilter(tab.id)}
+              onClick={() => {
+                setCurrentPage(1);
+                if (setArchiveSubFilter) setArchiveSubFilter(tab.id);
+              }}
               className={`py-2 px-1 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 relative cursor-pointer ${
                 isActive
                   ? 'bg-white text-purple-700 shadow-xs ring-1 ring-black/5 font-extrabold'
@@ -492,7 +517,7 @@ export default function MasterArchiveTab({
                 </div>
               )}
 
-              {groupedArchivedCuttings.map((group) => {
+              {currentItems.map((group) => {
                 const isCollapsed = collapsedCuttingLots.has(group.lotKey);
                 const lotTotalCutPieces = group.items.reduce((sum, c) => {
                   const f = fabrics.find((fab) => fab.id === c.fabricId);
@@ -539,7 +564,7 @@ export default function MasterArchiveTab({
               </p>
             </div>
           ) : (
-            archivedFabrics.map((f) => (
+            currentItems.map((f) => (
               <div
                 key={f.id}
                 className="p-3.5 sm:p-4 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5 sm:space-y-3 text-left opacity-95 hover:opacity-100 transition-opacity"
@@ -649,7 +674,7 @@ export default function MasterArchiveTab({
                 </div>
               )}
 
-              {groupedArchivedAssignments.map((group) => {
+              {currentItems.map((group) => {
                 const isCollapsed = collapsedAssignmentLots.has(group.lotKey);
                 const lotTotalPieces = group.items.reduce(
                   (sum, a) => sum + (parseInt(a.totalAssignedPieces, 10) || 0),
@@ -721,7 +746,7 @@ export default function MasterArchiveTab({
                 </div>
               )}
 
-              {groupedArchivedThreadJobs.map((group) => {
+              {currentItems.map((group) => {
                 const isCollapsed = collapsedTrimmingLots.has(group.lotKey);
                 const lotAssignedPieces = group.items.reduce(
                   (sum, tc) => sum + (parseInt(tc.assignedPSC ?? tc.assignedPieces, 10) || 0),
@@ -757,6 +782,21 @@ export default function MasterArchiveTab({
           )}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setCurrentPage(1);
+        }}
+        pageSizeOptions={[10, 15, 30, 50]}
+        theme="purple"
+      />
     </div>
   );
 }

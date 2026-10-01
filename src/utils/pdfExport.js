@@ -1,5 +1,16 @@
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas-pro';
+/**
+ * Lazy loads heavy PDF rendering libraries only when export is actually requested.
+ */
+let pdfLibsPromise = null;
+function getPdfLibraries() {
+  if (!pdfLibsPromise) {
+    pdfLibsPromise = Promise.all([
+      import('jspdf'),
+      import('html2canvas-pro'),
+    ]).then(([{ jsPDF }, { default: html2canvas }]) => ({ jsPDF, html2canvas }));
+  }
+  return pdfLibsPromise;
+}
 
 /**
  * Downloads a DOM element as a crisp, standard A4 PDF document.
@@ -14,6 +25,8 @@ export async function downloadA4Pdf(elementOrId, filename = 'document.pdf') {
     console.error('[pdfExport] Target element not found for PDF export:', elementOrId);
     return false;
   }
+
+  const { jsPDF, html2canvas } = await getPdfLibraries();
 
   // Capture target with high scale for retina-sharp text and borders
   const canvas = await html2canvas(el, {
@@ -80,6 +93,8 @@ export async function downloadThermalPdf(elementOrId, filename = 'thermal_receip
     console.error('[pdfExport] Target element not found for thermal PDF export:', elementOrId);
     return false;
   }
+
+  const { jsPDF, html2canvas } = await getPdfLibraries();
 
   const canvas = await html2canvas(el, {
     scale: 2.5,

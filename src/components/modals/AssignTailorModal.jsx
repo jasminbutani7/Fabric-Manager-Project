@@ -406,26 +406,6 @@ function AssignTailorDialog({
     }));
   };
 
-  const rawBalanceSummaryText = useMemo(() => {
-    if (!balance) return '';
-    const norm = getNormalizedCutPiecesList(cutting, fabric);
-    if (norm.length > 0) {
-      return norm
-        .map(
-          (item) =>
-            `${balance.remaining?.[item.key] !== undefined ? balance.remaining[item.key] : item.val} ${item.label}`
-        )
-        .join(' • ');
-    }
-    if (balance.remaining && typeof balance.remaining === 'object') {
-      const entries = Object.entries(balance.remaining);
-      if (entries.length > 0) {
-        return entries.map(([k, v]) => `${v} ${resolvePieceLabel(k)}`).join(' • ');
-      }
-    }
-    return '0 Cut PCs remaining';
-  }, [balance, cutting, fabric]);
-
   // Validation state for submit button
   const effectiveCuttingId = formData.cuttingId || fabricCuttings[0]?.id;
   const isAllocationTargetValid =

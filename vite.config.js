@@ -43,6 +43,9 @@ export default defineConfig({
           if (id.includes('node_modules/lucide-react/')) {
             return 'lucide-vendor'
           }
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas-pro')) {
+            return 'pdf-vendor'
+          }
         },
       },
     },
