@@ -16,9 +16,26 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { useAuth } from './useAuth';
 import { calculateAssignmentFinancials, getProductStructure } from '../services/dbMappers';
 import { broadcastSyncUpdate } from '../services/realtimeSync';
-import { getScopedExpenseCacheKey, purgeExpenseCaches } from '../utils/sessionSecurity';
+import { purgeExpenseCaches } from '../utils/sessionSecurity';
 
 const DEFAULT_PRODUCT_TEMPLATES = [];
+
+function getScopedTableCache(tableName, userId) {
+  if (typeof window === 'undefined' || !userId) return [];
+  try {
+    const raw = localStorage.getItem(`fm_${tableName}_cache_${userId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setScopedTableCache(tableName, userId, data) {
+  if (typeof window === 'undefined' || !userId) return;
+  try {
+    localStorage.setItem(`fm_${tableName}_cache_${userId}`, JSON.stringify(data));
+  } catch {}
+}
 
 const dbSave = async (tableName, dbObject) => {
   if (isSupabaseConfigured && supabase) {
@@ -26,6 +43,37 @@ const dbSave = async (tableName, dbObject) => {
       let currentObj = { ...dbObject };
       let { error } = await supabase.from(tableName).upsert([currentObj]);
       
+      // Auto-heal missing parent user in public.users if foreign key 23503 fails
+      if (error && error.code === '23503' && error.message?.includes('users') && currentObj.user_id) {
+        try {
+          const userRaw = typeof window !== 'undefined' ? sessionStorage.getItem('fabric_app_session') : null;
+          if (userRaw) {
+            const userObj = JSON.parse(userRaw);
+            if (userObj?.id) {
+              await supabase.from('users').upsert([
+                {
+                  id: userObj.id,
+                  name: userObj.name || 'Admin',
+                  phone: userObj.phone || '',
+                  email: userObj.email || null,
+                  company_name: userObj.companyName || userObj.company_name || 'Fabric Manager',
+                  role: 'Admin',
+                },
+              ], { onConflict: 'id' });
+
+              const retryRes = await supabase.from(tableName).upsert([currentObj]);
+              if (!retryRes.error) {
+                console.info(`Auto-healed user reference and saved to ${tableName}`);
+                return { success: true };
+              }
+              error = retryRes.error;
+            }
+          }
+        } catch (healErr) {
+          console.warn('Auto-heal user error in dbSave:', healErr);
+        }
+      }
+
       // If Supabase schema cache doesn't have certain optional columns (PGRST204),
       // retry by stripping the missing column(s) until it succeeds or retries exhausted
       let retries = 0;
@@ -80,6 +128,14 @@ const dbSave = async (tableName, dbObject) => {
 };
 
 const dbRemove = async (tableName, id) => {
+  try {
+    const userRaw = typeof window !== 'undefined' ? sessionStorage.getItem('fabric_app_session') : null;
+    const uId = userRaw ? JSON.parse(userRaw)?.id : null;
+    if (uId) {
+      const cached = getScopedTableCache(tableName, uId);
+      setScopedTableCache(tableName, uId, cached.filter((x) => x.id !== id));
+    }
+  } catch {}
   if (isSupabaseConfigured && supabase) {
     try {
       const { error } = await supabase.from(tableName).delete().eq('id', id);
@@ -114,31 +170,20 @@ export function ManagementProvider({ children }) {
     (currentUserId && !currentUserId.startsWith('mst_') && !currentUserId.startsWith('tlr_') && !currentUserId.startsWith('hlp_') ? currentUserId : null);
 
   const [isInitialized, setIsInitialized] = useState(false);
-  const [invoices, setInvoices] = useState([]);
-  const [expenses, setExpenses] = useState(() => {
-    try {
-      const cacheKey = getScopedExpenseCacheKey(ownerUserId);
-      if (cacheKey) {
-        const cached = localStorage.getItem(cacheKey);
-        return cached ? JSON.parse(cached) : [];
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  });
+  const [invoices, setInvoices] = useState(() => getScopedTableCache('invoices', ownerUserId));
+  const [expenses, setExpenses] = useState(() => getScopedTableCache('expenses', ownerUserId));
   const [invoiceExpenses, setInvoiceExpenses] = useState([]);
-  const [masters, setMasters] = useState([]);
-  const [machines, setMachines] = useState([]);
-  const [tailors, setTailors] = useState([]);
-  const [helpers, setHelpers] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [fabrics, setFabrics] = useState([]);
-  const [cuttings, setCuttings] = useState([]);
-  const [tailorAssignments, setTailorAssignments] = useState([]);
-  const [masterHandovers, setMasterHandovers] = useState([]);
-  const [threadCuttingAssignments, setThreadCuttingAssignments] = useState([]);
-  const [deliveryLogs, setDeliveryLogs] = useState([]);
+  const [masters, setMasters] = useState(() => getScopedTableCache('masters', ownerUserId));
+  const [machines, setMachines] = useState(() => getScopedTableCache('machines', ownerUserId));
+  const [tailors, setTailors] = useState(() => getScopedTableCache('tailors', ownerUserId));
+  const [helpers, setHelpers] = useState(() => getScopedTableCache('helpers', ownerUserId));
+  const [suppliers, setSuppliers] = useState(() => getScopedTableCache('suppliers', ownerUserId));
+  const [fabrics, setFabrics] = useState(() => getScopedTableCache('fabrics', ownerUserId));
+  const [cuttings, setCuttings] = useState(() => getScopedTableCache('cuttings', ownerUserId));
+  const [tailorAssignments, setTailorAssignments] = useState(() => getScopedTableCache('tailor_assignments', ownerUserId));
+  const [masterHandovers, setMasterHandovers] = useState(() => getScopedTableCache('master_handovers', ownerUserId));
+  const [threadCuttingAssignments, setThreadCuttingAssignments] = useState(() => getScopedTableCache('thread_cutting_assignments', ownerUserId));
+  const [deliveryLogs, setDeliveryLogs] = useState(() => getScopedTableCache('delivery_logs', ownerUserId));
   const [productTemplates, setProductTemplates] = useState(DEFAULT_PRODUCT_TEMPLATES);
   const recentAssignmentUpdatesRef = useRef(new Map());
   const dbInvoiceNumbersRef = useRef([]);
@@ -208,6 +253,19 @@ export function ManagementProvider({ children }) {
         ? fabricUserId
         : null;
     const effectiveUserId = validItemUserId || validFabricUserId || ownerUserId;
+
+    // Immediately persist to scoped localStorage cache
+    if (effectiveUserId) {
+      try {
+        const cached = getScopedTableCache(tableName, effectiveUserId);
+        const idx = cached.findIndex((x) => x.id === item.id);
+        const updatedCache = idx >= 0
+          ? cached.map((x) => (x.id === item.id ? { ...x, ...item } : x))
+          : [item, ...cached];
+        setScopedTableCache(tableName, effectiveUserId, updatedCache);
+      } catch {}
+    }
+
     const dbObj = mapFn(item, effectiveUserId);
     dbSave(tableName, dbObj);
 

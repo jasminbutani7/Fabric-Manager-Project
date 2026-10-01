@@ -8,26 +8,32 @@
 const STORAGE_SESSION_KEY = 'fabric_app_session';
 const LEGACY_STORAGE_SESSION_KEY = 'febric_app_session';
 const UNLOAD_TIMESTAMP_KEY = 'fabric_session_last_unload';
-const MAX_RELOAD_INTERVAL_MS = 4000;
+const MAX_RELOAD_INTERVAL_MS = 30000; // 30 seconds to safely accommodate dev server compilation & DevTools
+
+/**
+ * Returns tenant-isolated cache key for any entity table.
+ */
+export function getScopedTableCacheKey(tableName, userId) {
+  return userId ? `fm_${tableName}_cache_${userId}` : null;
+}
 
 /**
  * Returns the tenant-isolated cache key for expenses.
  */
 export function getScopedExpenseCacheKey(userId) {
-  return userId ? `fm_expenses_cache_${userId}` : null;
+  return getScopedTableCacheKey('expenses', userId);
 }
 
 /**
- * Purges all persistent expense caches to prevent cross-account data leakage.
+ * Purges all persistent table caches to prevent cross-account data leakage.
  */
 export function purgeExpenseCaches() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem('fm_expenses_cache');
     const toRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('fm_expenses_cache')) {
+      if (k && (k.startsWith('fm_') && k.includes('_cache_'))) {
         toRemove.push(k);
       }
     }

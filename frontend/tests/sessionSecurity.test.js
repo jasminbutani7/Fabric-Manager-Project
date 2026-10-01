@@ -63,8 +63,8 @@ describe('sessionSecurity Utilities', () => {
 
   it('expires session if browser was closed for longer than allowable threshold', () => {
     sessionStorage.setItem('fabric_app_session', JSON.stringify({ id: 'user1' }));
-    // Last unloaded 10 seconds ago
-    sessionStorage.setItem('fabric_session_last_unload', (Date.now() - 10000).toString());
+    // Last unloaded 35 seconds ago (exceeding the 30s threshold)
+    sessionStorage.setItem('fabric_session_last_unload', (Date.now() - 35000).toString());
     vi.spyOn(performance, 'getEntriesByType').mockReturnValue([{ type: 'navigate' }]);
 
     const oldNodeEnv = process.env.NODE_ENV;

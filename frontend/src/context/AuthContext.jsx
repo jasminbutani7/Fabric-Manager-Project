@@ -126,8 +126,22 @@ export function AuthProvider({ children }) {
                 .maybeSingle();
               if (!error && data) {
                 profile = data;
+              } else if (currentUser.role === 'Admin') {
+                // Auto-sync missing user record into Supabase to satisfy foreign key integrity
+                await supabase.from('users').upsert([
+                  {
+                    id: currentUser.id,
+                    name: currentUser.name || 'Admin',
+                    phone: currentUser.phone || '',
+                    email: currentUser.email || null,
+                    company_name: currentUser.companyName || currentUser.company_name || 'Fabric Manager',
+                    role: 'Admin',
+                  },
+                ], { onConflict: 'id' });
               }
-            } catch {}
+            } catch (err) {
+              console.warn('Auto-sync user record notice:', err);
+            }
           }
 
           if (isMounted && profile) {
@@ -170,7 +184,16 @@ export function AuthProvider({ children }) {
     return () => {
       isMounted = false;
     };
-  }, [currentUser?.id, currentUser?.role, logout]);
+  }, [
+    currentUser?.id,
+    currentUser?.role,
+    currentUser?.name,
+    currentUser?.phone,
+    currentUser?.email,
+    currentUser?.companyName,
+    currentUser?.company_name,
+    logout,
+  ]);
 
   // Sync active user session strictly to sessionStorage (browser close will expire session)
   useEffect(() => {

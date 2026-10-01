@@ -9,18 +9,19 @@ describe('Backend Email Service & Password Reset OTP System', () => {
     expect(typeof config).toBe('object');
   });
 
-  it('should simulate OTP delivery when SMTP credentials are not configured', async () => {
+  it('should deliver or simulate OTP delivery successfully', async () => {
     const testOtp = '654321';
     const result = await sendPasswordResetOtpEmail('testadmin@fabricmanager.com', testOtp, 'Test Admin');
 
     expect(result).toBeDefined();
     expect(result.success).toBe(true);
-    // When SMTP is not configured in .env, simulated is true
     if (result.simulated) {
       expect(result.otp).toBe(testOtp);
       expect(result.message).toContain('Developer mode');
+    } else {
+      expect(result.messageId).toBeDefined();
     }
-  });
+  }, 15000);
 
   it('should generate valid 6-digit OTP codes and PBKDF2 password hashes', () => {
     const rawOtp = String(Math.floor(100000 + Math.random() * 900000));

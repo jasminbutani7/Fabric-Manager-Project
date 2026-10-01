@@ -220,77 +220,85 @@ export function useSupabaseDataLoader({
         if (!isMountedRef.current) return;
 
         const isOwned = (item) => isItemOwned(item);
+        const targetUserId = resolvedAdminId || ownerUserId;
+
+        const setLocalTableCache = (tableName, data) => {
+          if (typeof window === 'undefined' || !targetUserId) return;
+          try {
+            localStorage.setItem(`fm_${tableName}_cache_${targetUserId}`, JSON.stringify(data));
+          } catch {}
+        };
 
         if (mastersData) {
-          setMasters(
-            mastersData.filter(isOwned).map((m) => ({
-              ...m,
-              password: m.password || null,
-              joinedDate: m.joined_date || m.joinedDate || null,
-              leftDate: m.left_date || m.leftDate || null,
-              exitReason: m.exit_reason || m.exitReason || null,
-            }))
-          );
+          const mappedMasters = mastersData.filter(isOwned).map((m) => ({
+            ...m,
+            password: m.password || null,
+            joinedDate: m.joined_date || m.joinedDate || null,
+            leftDate: m.left_date || m.leftDate || null,
+            exitReason: m.exit_reason || m.exitReason || null,
+          }));
+          setMasters(mappedMasters);
+          setLocalTableCache('masters', mappedMasters);
         } else {
           setMasters([]);
         }
 
         if (machinesData) {
-          setMachines(
-            machinesData.filter(isOwned).map((m) => ({
-              ...m,
-              assignedTailorId: m.assigned_tailor_id || m.assignedTailorId || null,
-              operatorHistory: m.operator_history || m.operatorHistory || [],
-            }))
-          );
+          const mappedMachines = machinesData.filter(isOwned).map((m) => ({
+            ...m,
+            assignedTailorId: m.assigned_tailor_id || m.assignedTailorId || null,
+            operatorHistory: m.operator_history || m.operatorHistory || [],
+          }));
+          setMachines(mappedMachines);
+          setLocalTableCache('machines', mappedMachines);
         } else {
           setMachines([]);
         }
 
         if (tailorsData) {
-          setTailors(
-            tailorsData.filter(isOwned).map((t) => ({
-              ...t,
-              password: t.password || null,
-              assignedMachineId: t.assigned_machine_id || t.assignedMachineId || null,
-              joinedDate: t.joined_date || t.joinedDate || null,
-              leftDate: t.left_date || t.leftDate || null,
-              exitReason: t.exit_reason || t.exitReason || null,
-            }))
-          );
+          const mappedTailors = tailorsData.filter(isOwned).map((t) => ({
+            ...t,
+            password: t.password || null,
+            assignedMachineId: t.assigned_machine_id || t.assignedMachineId || null,
+            joinedDate: t.joined_date || t.joinedDate || null,
+            leftDate: t.left_date || t.leftDate || null,
+            exitReason: t.exit_reason || t.exitReason || null,
+          }));
+          setTailors(mappedTailors);
+          setLocalTableCache('tailors', mappedTailors);
         } else {
           setTailors([]);
         }
 
         if (helpersData) {
-          setHelpers(
-            helpersData.filter(isOwned).map((h) => ({
-              ...h,
-              assignedMasterId: h.assigned_master_id || h.assignedMasterId || null,
-              helperCategory: h.helper_category || h.helperCategory || null,
-              helperType: h.helper_type || h.helperType || null,
-              workType: h.work_type || h.workType || null,
-              wageType: h.wage_type || h.wageType || null,
-              defaultRatePerPiece: parseFloat(h.default_rate_per_piece ?? h.default_rate_per_psc ?? h.defaultRatePerPSC) || 0,
-              defaultRatePerPSC: parseFloat(h.default_rate_per_piece ?? h.default_rate_per_psc ?? h.defaultRatePerPSC) || 0,
-              joinedDate: h.joined_date || h.joinedDate || null,
-              leftDate: h.left_date || h.leftDate || null,
-              exitReason: h.exit_reason || h.exitReason || null,
-            }))
-          );
+          const mappedHelpers = helpersData.filter(isOwned).map((h) => ({
+            ...h,
+            assignedMasterId: h.assigned_master_id || h.assignedMasterId || null,
+            helperCategory: h.helper_category || h.helperCategory || null,
+            helperType: h.helper_type || h.helperType || null,
+            workType: h.work_type || h.workType || null,
+            wageType: h.wage_type || h.wageType || null,
+            defaultRatePerPiece: parseFloat(h.default_rate_per_piece ?? h.default_rate_per_psc ?? h.defaultRatePerPSC) || 0,
+            defaultRatePerPSC: parseFloat(h.default_rate_per_piece ?? h.default_rate_per_psc ?? h.defaultRatePerPSC) || 0,
+            joinedDate: h.joined_date || h.joinedDate || null,
+            leftDate: h.left_date || h.leftDate || null,
+            exitReason: h.exit_reason || h.exitReason || null,
+          }));
+          setHelpers(mappedHelpers);
+          setLocalTableCache('helpers', mappedHelpers);
         } else {
           setHelpers([]);
         }
 
         if (suppliersData) {
-          setSuppliers(
-            suppliersData.filter(isOwned).map((s) => ({
-              ...s,
-              contactPerson: s.contact_person || s.contactPerson || null,
-              gstNumber: s.gst_number || s.gstNumber || null,
-              paymentTerms: s.payment_terms || s.paymentTerms || null,
-            }))
-          );
+          const mappedSuppliers = suppliersData.filter(isOwned).map((s) => ({
+            ...s,
+            contactPerson: s.contact_person || s.contactPerson || null,
+            gstNumber: s.gst_number || s.gstNumber || null,
+            paymentTerms: s.payment_terms || s.paymentTerms || null,
+          }));
+          setSuppliers(mappedSuppliers);
+          setLocalTableCache('suppliers', mappedSuppliers);
         } else {
           setSuppliers([]);
         }
@@ -299,6 +307,7 @@ export function useSupabaseDataLoader({
         if (fabricsData) {
           allFabrics = fabricsData.filter(isOwned).map(mapLoadedFabric);
           setFabrics(allFabrics);
+          setLocalTableCache('fabrics', allFabrics);
         } else {
           setFabrics([]);
         }
@@ -307,116 +316,117 @@ export function useSupabaseDataLoader({
         if (cuttingsData) {
           allCuttings = cuttingsData.filter(isOwned).map(mapLoadedCutting);
           setCuttings(allCuttings);
+          setLocalTableCache('cuttings', allCuttings);
         } else {
           setCuttings([]);
         }
 
         if (assignmentsData) {
-          setTailorAssignments(
-            assignmentsData.filter(isOwned).map((a) => {
-              const cutPieces = a.assigned_cut_pieces || a.assigned_pieces || a.cutPieces || a.assignedCutPieces;
-              const rawGarmentPcs = a.assigned_garment_pcs || a.assigned_sub_parts || a.garmentPcs || a.assignedGarmentPcs || {};
-              const meta = (rawGarmentPcs && typeof rawGarmentPcs === 'object' && rawGarmentPcs._meta) ? rawGarmentPcs._meta : {};
-              const garmentPcs = (rawGarmentPcs && typeof rawGarmentPcs === 'object') ? { ...rawGarmentPcs } : {};
-              delete garmentPcs._meta;
+          const mappedAssignments = assignmentsData.filter(isOwned).map((a) => {
+            const cutPieces = a.assigned_cut_pieces || a.assigned_pieces || a.cutPieces || a.assignedCutPieces;
+            const rawGarmentPcs = a.assigned_garment_pcs || a.assigned_sub_parts || a.garmentPcs || a.assignedGarmentPcs || {};
+            const meta = (rawGarmentPcs && typeof rawGarmentPcs === 'object' && rawGarmentPcs._meta) ? rawGarmentPcs._meta : {};
+            const garmentPcs = (rawGarmentPcs && typeof rawGarmentPcs === 'object') ? { ...rawGarmentPcs } : {};
+            delete garmentPcs._meta;
 
-              const normalized = {
-                id: a.id,
-                userId: a.user_id || a.userId,
-                user_id: a.user_id || a.userId,
-                fabricId: a.fabric_id || a.fabricId,
-                fabricName: a.fabric_name || a.fabricName,
-                cuttingId: a.cutting_id || a.cuttingId,
-                masterId: a.masterId || a.master_id || meta.masterId || null,
-                masterName: a.master_name || a.masterName,
-                tailorId: a.tailor_id || a.tailorId,
-                tailorName: a.tailor_name || a.tailorName,
-                machineId: a.machineId || a.machine_id || meta.machineId || null,
-                machineCode: a.machineCode || a.machine_code || meta.machineCode || '',
-                machineName: a.machineName || a.machine_name || meta.machineName || '',
-                allocationMode: a.allocationMode || a.allocation_mode || meta.allocationMode || 'by_machine',
-                assignedPieces: cutPieces,
-                assignedCutPieces: cutPieces,
-                assignedSubParts: garmentPcs,
-                assignedGarmentPcs: garmentPcs,
-                totalAssignedPieces: a.total_assigned_pieces || a.totalAssignedPieces,
-                ratePerPiece: a.rate_per_piece || a.ratePerPiece,
-                totalJobAmount: a.total_job_amount || a.totalJobAmount,
-                tailorRates: a.tailor_rates || a.tailorRates || meta.tailorRates || null,
-                subPartRates: a.sub_part_rates || a.subPartRates || meta.subPartRates || null,
-                productStructure: a.product_structure || a.productStructure,
-                pieceType: a.piece_type || a.pieceType,
-                completedQuantity: a.completed_quantity || a.completedQuantity,
-                totalEarned: a.total_earned || a.totalEarned,
-                dailySubmissions: a.daily_submissions || a.dailySubmissions || [],
-                tailorAccepted: a.tailor_accepted || a.tailorAccepted,
-                acceptedAt: a.accepted_at || a.acceptedAt,
-                notes: a.notes || meta.notes || null,
-                assignDate: a.assign_date || a.assignDate || meta.assignDate || (a.created_at ? a.created_at.split('T')[0] : ''),
-                dueDate: a.due_date || a.dueDate || meta.dueDate || null,
-                status: a.status,
-                isArchived: Boolean(a.is_archived || a.isArchived),
-                archivedAt: a.archived_at || a.archivedAt || null,
-                createdAt: a.created_at || a.createdAt,
-                updatedAt: a.updated_at || a.updatedAt,
-              };
-              return normalizeTailorAssignment(normalized, allFabrics, allCuttings);
-            })
-          );
+            const normalized = {
+              id: a.id,
+              userId: a.user_id || a.userId,
+              user_id: a.user_id || a.userId,
+              fabricId: a.fabric_id || a.fabricId,
+              fabricName: a.fabric_name || a.fabricName,
+              cuttingId: a.cutting_id || a.cuttingId,
+              masterId: a.masterId || a.master_id || meta.masterId || null,
+              masterName: a.master_name || a.masterName,
+              tailorId: a.tailor_id || a.tailorId,
+              tailorName: a.tailor_name || a.tailorName,
+              machineId: a.machineId || a.machine_id || meta.machineId || null,
+              machineCode: a.machineCode || a.machine_code || meta.machineCode || '',
+              machineName: a.machineName || a.machine_name || meta.machineName || '',
+              allocationMode: a.allocationMode || a.allocation_mode || meta.allocationMode || 'by_machine',
+              assignedPieces: cutPieces,
+              assignedCutPieces: cutPieces,
+              assignedSubParts: garmentPcs,
+              assignedGarmentPcs: garmentPcs,
+              totalAssignedPieces: a.total_assigned_pieces || a.totalAssignedPieces,
+              ratePerPiece: a.rate_per_piece || a.ratePerPiece,
+              totalJobAmount: a.total_job_amount || a.totalJobAmount,
+              tailorRates: a.tailor_rates || a.tailorRates || meta.tailorRates || null,
+              subPartRates: a.sub_part_rates || a.subPartRates || meta.subPartRates || null,
+              productStructure: a.product_structure || a.productStructure,
+              pieceType: a.piece_type || a.pieceType,
+              completedQuantity: a.completed_quantity || a.completedQuantity,
+              totalEarned: a.total_earned || a.totalEarned,
+              dailySubmissions: a.daily_submissions || a.dailySubmissions || [],
+              tailorAccepted: a.tailor_accepted || a.tailorAccepted,
+              acceptedAt: a.accepted_at || a.acceptedAt,
+              notes: a.notes || meta.notes || null,
+              assignDate: a.assign_date || a.assignDate || meta.assignDate || (a.created_at ? a.created_at.split('T')[0] : ''),
+              dueDate: a.due_date || a.dueDate || meta.dueDate || null,
+              status: a.status,
+              isArchived: Boolean(a.is_archived || a.isArchived),
+              archivedAt: a.archived_at || a.archivedAt || null,
+              createdAt: a.created_at || a.createdAt,
+              updatedAt: a.updated_at || a.updatedAt,
+            };
+            return normalizeTailorAssignment(normalized, allFabrics, allCuttings);
+          });
+          setTailorAssignments(mappedAssignments);
+          setLocalTableCache('tailor_assignments', mappedAssignments);
         } else {
           setTailorAssignments([]);
         }
 
         if (handoversData) {
-          setMasterHandovers(
-            handoversData.filter(isOwned).map((h) => {
-              let meta = {};
-              if (h.notes && typeof h.notes === 'string' && h.notes.trim().startsWith('{')) {
-                try { meta = JSON.parse(h.notes); } catch { meta = { userNotes: h.notes }; }
-              } else {
-                meta = { userNotes: h.notes };
-              }
+          const mappedHandovers = handoversData.filter(isOwned).map((h) => {
+            let meta = {};
+            if (h.notes && typeof h.notes === 'string' && h.notes.trim().startsWith('{')) {
+              try { meta = JSON.parse(h.notes); } catch { meta = { userNotes: h.notes }; }
+            } else {
+              meta = { userNotes: h.notes };
+            }
 
-              const cutting = allCuttings.find((c) => c.id === (h.cutting_id || h.cuttingId));
-              const fabric = allFabrics.find((f) => f.id === (h.fabric_id || h.fabricId || cutting?.fabricId));
+            const cutting = allCuttings.find((c) => c.id === (h.cutting_id || h.cuttingId));
+            const fabric = allFabrics.find((f) => f.id === (h.fabric_id || h.fabricId || cutting?.fabricId));
 
-              return {
-                ...h,
-                notes: meta.userNotes !== undefined ? meta.userNotes : h.notes,
-                _userNotes: meta.userNotes || null,
-                masterId: h.master_id || h.masterId,
-                masterName: h.master_name || h.masterName,
-                fabricId: h.fabric_id || h.fabricId || cutting?.fabricId || null,
-                fabricName: meta.fabricName || h.fabric_name || h.fabricName || cutting?.fabricName || fabric?.fabricType || 'Fabric Batch',
-                productName: meta.productName || h.product_name || h.productName || cutting?.productName || 'Garment',
-                cuttingId: h.cutting_id || h.cuttingId,
-                piecesCount: parseInt(h.pieces_count ?? h.piecesCount ?? h.pieces ?? h.receivedQuantity, 10) || 0,
-                pieces: parseInt(h.pieces_count ?? h.pieces ?? h.piecesCount ?? h.receivedQuantity, 10) || 0,
-                subParts: meta.subParts || h.sub_parts || h.subParts || null,
-                parts: meta.parts || h.parts || null,
-                combinationFormula: meta.combinationFormula || h.combination_formula || h.combinationFormula || null,
-                handoverDate: meta.handoverDate || h.handover_date || h.handoverDate || h.date || null,
-                verifiedBy: meta.verifiedBy || h.verified_by || h.verifiedBy || null,
-                verifiedAt: meta.verifiedAt || h.verified_at || h.verifiedAt || null,
-                rejectionReason: meta.rejectionReason || h.rejection_reason || h.rejectionReason || null,
-                rejectedAt: meta.rejectedAt || h.rejected_at || h.rejectedAt || null,
-                receivedQuantity: h.received_quantity || h.receivedQuantity,
-                acceptedQuantity: h.accepted_quantity || h.acceptedQuantity,
-                rejectedQuantity: h.rejected_quantity || h.rejectedQuantity,
-                trimmingStatus: meta.trimmingStatus || h.trimming_status || h.trimmingStatus || (meta.trimmedByMaster ? 'trimmed' : meta.skippedByMaster ? 'skipped' : null),
-                trimmedByMaster: Boolean(meta.trimmedByMaster || meta.trimmingStatus === 'trimmed' || h.trimming_status === 'trimmed'),
-                skippedByMaster: Boolean(meta.skippedByMaster || meta.trimmingStatus === 'skipped' || h.trimming_status === 'skipped'),
-                trimmedPieces: parseInt(meta.trimmedPieces ?? h.trimmed_pieces ?? h.trimmedPieces, 10) || 0,
-                skippedTrimmingPieces: parseInt(meta.skippedTrimmingPieces ?? h.skipped_trimming_pieces ?? h.skippedTrimmingPieces, 10) || 0,
-                trimmedSubParts: meta.trimmedSubParts || h.trimmed_sub_parts || h.trimmedSubParts || null,
-                skippedSubParts: meta.skippedSubParts || h.skipped_sub_parts || h.skippedSubParts || null,
-                trimmingHelperName: meta.trimmingHelperName || null,
-                trimmingHelperType: meta.trimmingHelperType || null,
-                isArchived: Boolean(h.is_archived || h.isArchived),
-                archivedAt: h.archived_at || h.archivedAt || null,
-              };
-            })
-          );
+            return {
+              ...h,
+              notes: meta.userNotes !== undefined ? meta.userNotes : h.notes,
+              _userNotes: meta.userNotes || null,
+              masterId: h.master_id || h.masterId,
+              masterName: h.master_name || h.masterName,
+              fabricId: h.fabric_id || h.fabricId || cutting?.fabricId || null,
+              fabricName: meta.fabricName || h.fabric_name || h.fabricName || cutting?.fabricName || fabric?.fabricType || 'Fabric Batch',
+              productName: meta.productName || h.product_name || h.productName || cutting?.productName || 'Garment',
+              cuttingId: h.cutting_id || h.cuttingId,
+              piecesCount: parseInt(h.pieces_count ?? h.piecesCount ?? h.pieces ?? h.receivedQuantity, 10) || 0,
+              pieces: parseInt(h.pieces_count ?? h.pieces ?? h.piecesCount ?? h.receivedQuantity, 10) || 0,
+              subParts: meta.subParts || h.sub_parts || h.subParts || null,
+              parts: meta.parts || h.parts || null,
+              combinationFormula: meta.combinationFormula || h.combination_formula || h.combinationFormula || null,
+              handoverDate: meta.handoverDate || h.handover_date || h.handoverDate || h.date || null,
+              verifiedBy: meta.verifiedBy || h.verified_by || h.verifiedBy || null,
+              verifiedAt: meta.verifiedAt || h.verified_at || h.verifiedAt || null,
+              rejectionReason: meta.rejectionReason || h.rejection_reason || h.rejectionReason || null,
+              rejectedAt: meta.rejectedAt || h.rejected_at || h.rejectedAt || null,
+              receivedQuantity: h.received_quantity || h.receivedQuantity,
+              acceptedQuantity: h.accepted_quantity || h.acceptedQuantity,
+              rejectedQuantity: h.rejected_quantity || h.rejectedQuantity,
+              trimmingStatus: meta.trimmingStatus || h.trimming_status || h.trimmingStatus || (meta.trimmedByMaster ? 'trimmed' : meta.skippedByMaster ? 'skipped' : null),
+              trimmedByMaster: Boolean(meta.trimmedByMaster || meta.trimmingStatus === 'trimmed' || h.trimming_status === 'trimmed'),
+              skippedByMaster: Boolean(meta.skippedByMaster || meta.trimmingStatus === 'skipped' || h.trimming_status === 'skipped'),
+              trimmedPieces: parseInt(meta.trimmedPieces ?? h.trimmed_pieces ?? h.trimmedPieces, 10) || 0,
+              skippedTrimmingPieces: parseInt(meta.skippedTrimmingPieces ?? h.skipped_trimming_pieces ?? h.skippedTrimmingPieces, 10) || 0,
+              trimmedSubParts: meta.trimmedSubParts || h.trimmed_sub_parts || h.trimmedSubParts || null,
+              skippedSubParts: meta.skippedSubParts || h.skipped_sub_parts || h.skippedSubParts || null,
+              trimmingHelperName: meta.trimmingHelperName || null,
+              trimmingHelperType: meta.trimmingHelperType || null,
+              isArchived: Boolean(h.is_archived || h.isArchived),
+              archivedAt: h.archived_at || h.archivedAt || null,
+            };
+          });
+          setMasterHandovers(mappedHandovers);
+          setLocalTableCache('master_handovers', mappedHandovers);
         } else {
           setMasterHandovers([]);
         }
@@ -554,7 +564,9 @@ export function useSupabaseDataLoader({
         }
 
         if (invoicesData) {
-          setInvoices(invoicesData.filter(isOwned).map(mapLoadedInvoice));
+          const mappedInvoices = invoicesData.filter(isOwned).map(mapLoadedInvoice);
+          setInvoices(mappedInvoices);
+          setLocalTableCache('invoices', mappedInvoices);
         } else {
           setInvoices([]);
         }
