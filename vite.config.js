@@ -9,6 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
+  root: path.resolve(__dirname, './frontend'),
+  publicDir: path.resolve(__dirname, './frontend/public'),
   server: {
     host: true,
     port: 3000,
@@ -27,6 +29,7 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', 'react-router-dom'],
     alias: {
+      '@': path.resolve(__dirname, './frontend/src'),
       react: path.resolve(__dirname, './node_modules/react'),
       'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
     },
@@ -34,9 +37,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    root: path.resolve(__dirname, './frontend'),
     exclude: ['**/node_modules/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
   },
   build: {
+    outDir: path.resolve(__dirname, './dist'),
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -65,47 +71,13 @@ export default defineConfig({
       manifest: {
         name: 'Fabric Manager ERP',
         short_name: 'FabricManager',
-        description: 'Mobile-first Textile & Fabric Management App',
+        description: 'Textile & Garment Production, Cutting, Stitching and Invoicing ERP',
         theme_color: '#4f46e5',
-        background_color: '#f8fafc',
-        display: 'standalone',
-        orientation: 'portrait',
         icons: [
           {
-            src: '/favicon.svg',
+            src: 'favicon.svg',
             sizes: '192x192 512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              }
-            }
+            type: 'image/svg+xml'
           }
         ]
       }
