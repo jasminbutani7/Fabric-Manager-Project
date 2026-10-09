@@ -18,20 +18,20 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL || 'https://vxzguputwxiqvsndrhmi.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '';
-const dbPassword = process.env.SUPABASE_DB_PASSWORD || env.SUPABASE_DB_PASSWORD || 'k3PZlGluMvgSuTOQ';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || env.SUPABASE_URL || env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || '';
+const dbPassword = process.env.SUPABASE_DB_PASSWORD || env.SUPABASE_DB_PASSWORD || '';
 
 const projectRefMatch = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
-const projectRef = projectRefMatch ? projectRefMatch[1] : 'vxzguputwxiqvsndrhmi';
+const projectRef = projectRefMatch ? projectRefMatch[1] : (process.env.SUPABASE_PROJECT_REF || env.SUPABASE_PROJECT_REF || '');
 
 // PostgreSQL Connection Pool (AWS ap-south-1 Pooler on Port 6543)
 const pool = new Pool({
-  host: 'aws-0-ap-south-1.pooler.supabase.com',
-  port: 6543,
-  user: `postgres.${projectRef}`,
+  host: process.env.SUPABASE_DB_HOST || env.SUPABASE_DB_HOST || 'aws-0-ap-south-1.pooler.supabase.com',
+  port: parseInt(process.env.SUPABASE_DB_PORT || env.SUPABASE_DB_PORT || '6543', 10),
+  user: projectRef ? `postgres.${projectRef}` : (process.env.SUPABASE_DB_USER || 'postgres'),
   password: dbPassword,
-  database: 'postgres',
+  database: process.env.SUPABASE_DB_NAME || env.SUPABASE_DB_NAME || 'postgres',
   ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
@@ -39,12 +39,14 @@ const pool = new Pool({
 });
 
 // Direct Supabase Client
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+const supabase = (supabaseUrl && supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
+  : null;
 
 async function query(text, params) {
   const start = Date.now();

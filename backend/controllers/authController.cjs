@@ -1,5 +1,5 @@
 const { query } = require('../config/db.cjs');
-const { verifyPbkdf2Password, hashPasswordPbkdf2, sanitizeMobileNumber } = require('../config/security.cjs');
+const { verifyPbkdf2Password, hashPasswordPbkdf2, verifyWorkerPin: verifyWorkerPinHelper, sanitizeMobileNumber } = require('../config/security.cjs');
 
 /**
  * Admin Login Endpoint
@@ -114,7 +114,7 @@ async function verifyWorkerPin(req, res) {
     }
 
     const worker = result.rows[0];
-    const isPinValid = worker.password === pin.trim();
+    const isPinValid = verifyWorkerPinHelper(pin, worker.password);
 
     if (!isPinValid) {
       return res.status(401).json({ success: false, error: 'Invalid PIN. Please check with factory admin' });
@@ -133,9 +133,11 @@ async function verifyWorkerPin(req, res) {
   }
 }
 
-// In-memory OTP storage: email -> { otp, expiresAt, verified, verifiedAt, userId }
+// In-memory OTP storage: email -> { otp, createdAt, expiresAt, attempts, verified, verifiedAt, userId }
 const otpStore = new Map();
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_COOLDOWN_MS = 60 * 1000; // 60 seconds
+const MAX_OTP_ATTEMPTS = 5;
 
 const { sendPasswordResetOtpEmail } = require('../services/emailService.cjs');
 
@@ -151,6 +153,16 @@ async function forgotPassword(req, res) {
 
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return res.status(400).json({ success: false, error: 'A valid email address is required' });
+    }
+
+    // Rate-limiting: Cooldown period of 60 seconds between OTP requests
+    const existing = otpStore.get(cleanEmail);
+    if (existing && Date.now() - existing.createdAt < OTP_COOLDOWN_MS) {
+      const waitSeconds = Math.ceil((OTP_COOLDOWN_MS - (Date.now() - existing.createdAt)) / 1000);
+      return res.status(429).json({
+        success: false,
+        error: `Please wait ${waitSeconds} seconds before requesting another verification code.`,
+      });
     }
 
     // 1. Verify user exists in public.users
@@ -170,12 +182,15 @@ async function forgotPassword(req, res) {
 
     // 2. Generate cryptographically random 6-digit OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const expiresAt = Date.now() + OTP_EXPIRY_MS;
+    const now = Date.now();
+    const expiresAt = now + OTP_EXPIRY_MS;
 
-    // Store in memory
+    // Store in memory with attempt tracking
     otpStore.set(cleanEmail, {
       otp,
+      createdAt: now,
       expiresAt,
+      attempts: 0,
       verified: false,
       userId: user.id,
       userName: user.name,
@@ -227,10 +242,28 @@ async function verifyOtp(req, res) {
       });
     }
 
+    // Brute-force protection: check attempt count
+    if ((record.attempts || 0) >= MAX_OTP_ATTEMPTS) {
+      otpStore.delete(cleanEmail);
+      return res.status(429).json({
+        success: false,
+        error: 'Too many incorrect attempts. For security, this code was invalidated. Please request a new one.',
+      });
+    }
+
     if (record.otp !== cleanOtp) {
+      record.attempts = (record.attempts || 0) + 1;
+      const remaining = MAX_OTP_ATTEMPTS - record.attempts;
+      if (remaining <= 0) {
+        otpStore.delete(cleanEmail);
+        return res.status(429).json({
+          success: false,
+          error: 'Too many incorrect attempts. This code was invalidated. Please request a new one.',
+        });
+      }
       return res.status(400).json({
         success: false,
-        error: 'Invalid OTP code. Please check your email or enter the code again.',
+        error: `Invalid OTP code. ${remaining} attempts remaining.`,
       });
     }
 

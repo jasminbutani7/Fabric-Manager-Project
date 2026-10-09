@@ -17,7 +17,7 @@ describe('Backend Email Service & Password Reset OTP System', () => {
     expect(result.success).toBe(true);
     if (result.simulated) {
       expect(result.otp).toBe(testOtp);
-      expect(result.message).toContain('Developer mode');
+      expect(result.message).toMatch(/(Test|Developer) mode/);
     } else {
       expect(result.messageId).toBeDefined();
     }

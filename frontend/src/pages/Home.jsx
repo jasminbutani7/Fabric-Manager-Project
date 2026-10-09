@@ -1,28 +1,12 @@
 import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Sliders,
-  CheckCircle2,
-  Clock,
-  ShieldCheck,
-  Sparkles,
-  Scissors,
-  UserCheck,
-  Layers,
-  Receipt,
-  FileText,
-  PackageCheck,
-  TrendingUp,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  Zap,
-  Truck,
-  Search,
   Package,
+  ShieldCheck,
   IndianRupee,
-  X,
-  Activity,
+  Truck,
+  Scissors,
+  Layers,
   Trash2,
 } from 'lucide-react';
 import { useFactorySetup, useFabrics, useProduction, useFinance } from '../context/useManagement';
@@ -37,9 +21,8 @@ const AddExpenseModal = lazy(() => import('../components/modals/AddExpenseModal'
 const AddInvoiceModal = lazy(() => import('../components/modals/AddInvoiceModal'));
 const DeliverToSupplierModal = lazy(() => import('../components/modals/DeliverToSupplierModal'));
 const ThreadTrimmingDecisionModal = lazy(() => import('../components/modals/ThreadTrimmingDecisionModal'));
-import FabricLotCard from '../components/fabric/FabricLotCard';
 import FabricModalsContainer from '../components/fabric/FabricModalsContainer';
-import PaginationControls from '../components/common/PaginationControls';
+import { HomeSubTabsNav, HomeFloorPulseTab, HomeActionsTab, HomeFeedTab } from '../components/home';
 import {
   getHandoversBreakdownSummary,
   calculateReadyProductSets,
@@ -632,476 +615,55 @@ export default function Home() {
 
   return (
     <div className="space-y-3 pb-6">
-      {/* Sub-Tabs Pill Navigation Bar (Mobile-Friendly 4-Column Grid) */}
-      <div className="grid grid-cols-4 gap-1 sm:gap-1.5 p-1 bg-slate-100/80 rounded-2xl border border-slate-200/80 text-center shadow-2xs">
-        {[
-          {
-            id: 'pulse',
-            label: 'Activities',
-            icon: TrendingUp,
-            count: totalUrgentActionCount > 0 ? totalUrgentActionCount : runningLots.length,
-            color: 'text-indigo-700',
-          },
-          {
-            id: 'actions',
-            label: 'Actions',
-            icon: Zap,
-            count: 14,
-            color: 'text-indigo-700',
-          },
-          {
-            id: 'suppliers',
-            label: 'Suppliers',
-            icon: Truck,
-            count: suppliers.length,
-            color: 'text-blue-700',
-          },
-          {
-            id: 'feed',
-            label: 'Feed',
-            icon: Clock,
-            count: allFeedActivities.length,
-            color: 'text-indigo-700',
-          },
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 cursor-pointer ${isActive
-                  ? `bg-white ${tab.color} shadow-xs ring-1 ring-black/5 font-extrabold`
-                  : 'text-slate-500 hover:text-slate-800'
-                }`}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-[10px] sm:text-xs truncate">{tab.label}</span>
-              {tab.count !== undefined && (
-                <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold leading-none shrink-0 ${isActive ? 'bg-slate-100 text-slate-800' : 'bg-slate-200/70 text-slate-600'
-                    }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Sub-Tabs Pill Navigation Bar */}
+      <HomeSubTabsNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        runningLotsCount={runningLots.length}
+        urgentActionsCount={totalUrgentActionCount}
+        suppliersCount={suppliers.length}
+        feedActivitiesCount={allFeedActivities.length}
+      />
 
       {/* SUB-TAB 1: FLOOR PULSE */}
       {activeTab === 'pulse' && (
-        <div className="space-y-3 animate-in fade-in duration-200">
-          {/* Pending Master Handover Alert Banner */}
-          {pendingMasterHandovers.length > 0 && (
-            <div
-              onClick={() => navigate('/orders/handovers')}
-              className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/15 border border-amber-300 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer hover:border-amber-400 transition-all shadow-xs text-left"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-                  <PackageCheck className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1 flex-wrap">
-                    <span>Finished Handovers</span>
-                    <span className="px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded-full text-[9px] font-black">
-                      {pendingMasterHandovers.length} New
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-600 truncate">
-                    {pendingMasterBreakdown} ready for verification
-                  </p>
-                </div>
-              </div>
-              <span className="text-[11px] font-bold text-amber-800 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shrink-0">
-                Review →
-              </span>
-            </div>
-          )}
-
-          {/* Trimming Decisions Needed Alert Banner */}
-          {lotsAwaitingTrimming.length > 0 && (
-            <div
-              onClick={() => {
-                const targetLot = lotsAwaitingTrimming[0];
-                navigate(`/orders/thread_cutting?search=${encodeURIComponent(targetLot.fabricType || targetLot.productName || '')}`);
-              }}
-              className="p-3 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-orange-500/15 border border-amber-300 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer hover:border-amber-400 transition-all shadow-xs text-left"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Scissors className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1 flex-wrap">
-                    <span>Trimming Decisions Needed</span>
-                    <span className="px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded-full text-[9px] font-black">
-                      {totalPendingTrimmingPieces} PCs Awaiting
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-600 truncate">
-                    {lotsAwaitingTrimming.map((l) => l.fabricType || l.productName).filter(Boolean).slice(0, 2).join(', ')}
-                    {lotsAwaitingTrimming.length > 2 ? ` +${lotsAwaitingTrimming.length - 2} more` : ''} • Choose trim vs skip per component
-                  </p>
-                </div>
-              </div>
-              <span className="text-[11px] font-bold text-amber-900 bg-white px-2.5 py-1 rounded-lg border border-amber-300 shrink-0 shadow-2xs">
-                Decide Trimming →
-              </span>
-            </div>
-          )}
-
-          {/* Ready for Supplier Delivery Alert Banner */}
-          {lotsReadyForDelivery.length > 0 && (
-            <div
-              onClick={() => {
-                const targetLot = lotsReadyForDelivery[0];
-                setDeliverFabricId(targetLot.id);
-                setShowDeliverModal(true);
-              }}
-              className="p-3 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border border-emerald-300 rounded-2xl flex items-center justify-between gap-2.5 cursor-pointer hover:border-emerald-400 transition-all shadow-xs text-left"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Truck className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1 flex-wrap">
-                    <span>Ready for Supplier Delivery</span>
-                    <span className="px-1.5 py-0.2 bg-emerald-200 text-emerald-950 rounded-full text-[9px] font-black">
-                      {totalReadyDeliveryPieces} PCs Ready
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-600 truncate">
-                    {lotsReadyForDelivery.map((l) => l.fabricType || l.productName).filter(Boolean).slice(0, 2).join(', ')}
-                    {lotsReadyForDelivery.length > 2 ? ` +${lotsReadyForDelivery.length - 2} more` : ''} • Finished pieces ready for dispatch
-                  </p>
-                </div>
-              </div>
-              <span className="text-[11px] font-bold text-emerald-900 bg-white px-2.5 py-1 rounded-lg border border-emerald-300 shrink-0 shadow-2xs">
-                Deliver Goods →
-              </span>
-            </div>
-          )}
-
-
-
-          {/* Running Lot Information Overview (Admin Floor Pulse) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-0.5">
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Running Lots
-                </h3>
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                  {runningLots.length > 0 ? `${runningLots.length} Active` : 'Idle'}
-                </span>
-              </div>
-              {runningLots.length > 0 && (
-                <button
-                  type="button"
-                  onClick={isAllLotsExpanded ? handleCollapseAllLots : handleExpandAllLots}
-                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-0.5 cursor-pointer"
-                >
-                  <span>{isAllLotsExpanded ? 'Collapse All' : 'Expand All'}</span>
-                  <ChevronDown
-                    className={`w-3 h-3 transition-transform duration-200 ${isAllLotsExpanded ? 'rotate-180' : ''
-                      }`}
-                  />
-                </button>
-              )}
-            </div>
-
-            {/* List of Fabric Lot Cards */}
-            {runningLots.length > 0 ? (
-              <div className="space-y-3">
-                {paginatedRunningLots.map((lot) => (
-                  <FabricLotCard
-                    key={lot.id}
-                    fabric={lot}
-                    isExpanded={expandedLotIds.has(lot.id)}
-                    onToggleExpand={() => toggleLotExpand(lot.id)}
-                    modalActions={modalActions}
-                  />
-                ))}
-                <PaginationControls
-                  currentPage={safeRunningLotsPage}
-                  totalPages={runningLotsTotalPages}
-                  totalItems={runningLots.length}
-                  pageSize={runningLotsPageSize}
-                  onPageChange={setRunningLotsPage}
-                  onPageSizeChange={(newSize) => {
-                    setRunningLotsPageSize(newSize);
-                    setRunningLotsPage(1);
-                  }}
-                  pageSizeOptions={[5, 10, 20]}
-                  theme="indigo"
-                />
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs text-center space-y-2">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">No Active Lots</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    No lots currently on cutting or stitching floor.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddFabric(true)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Add Fabric</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <HomeFloorPulseTab
+          pendingMasterHandovers={pendingMasterHandovers}
+          pendingMasterBreakdown={pendingMasterBreakdown}
+          lotsAwaitingTrimming={lotsAwaitingTrimming}
+          totalPendingTrimmingPieces={totalPendingTrimmingPieces}
+          lotsReadyForDelivery={lotsReadyForDelivery}
+          totalReadyDeliveryPieces={totalReadyDeliveryPieces}
+          setDeliverFabricId={setDeliverFabricId}
+          setShowDeliverModal={setShowDeliverModal}
+          runningLots={runningLots}
+          paginatedRunningLots={paginatedRunningLots}
+          expandedLotIds={expandedLotIds}
+          toggleLotExpand={toggleLotExpand}
+          isAllLotsExpanded={isAllLotsExpanded}
+          handleCollapseAllLots={handleCollapseAllLots}
+          handleExpandAllLots={handleExpandAllLots}
+          safeRunningLotsPage={safeRunningLotsPage}
+          runningLotsTotalPages={runningLotsTotalPages}
+          runningLotsPageSize={runningLotsPageSize}
+          setRunningLotsPage={setRunningLotsPage}
+          setRunningLotsPageSize={setRunningLotsPageSize}
+          modalActions={modalActions}
+          setShowAddFabric={setShowAddFabric}
+          navigate={navigate}
+        />
       )}
 
       {/* SUB-TAB 2: QUICK ACTIONS */}
       {activeTab === 'actions' && (
-        <div className="space-y-3 animate-in fade-in duration-200">
-          {/* 1. Admin Actions */}
-          <div className="space-y-2 bg-white rounded-2xl p-3 border border-slate-200/80 shadow-xs">
-            <div className="flex items-center justify-between px-0.5 pb-1 border-b border-slate-100">
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Admin Actions
-                </h3>
-              </div>
-              <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded-full">
-                5 Actions
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 pt-1">
-              <button
-                onClick={() => setShowAddFabric(true)}
-                className="p-2.5 bg-slate-50/70 hover:bg-indigo-50/50 active:scale-[0.98] border border-slate-200/80 hover:border-indigo-200 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Add Fabric</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Fabric Rolls</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/thread_cutting')}
-                className="p-2.5 bg-slate-50/70 hover:bg-amber-50/50 active:scale-[0.98] border border-slate-200/80 hover:border-amber-200 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                  <Scissors className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Thread Cut</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Trimming Work</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/handovers')}
-                className="p-2.5 bg-slate-50/70 hover:bg-purple-50/50 active:scale-[0.98] border border-slate-200/80 hover:border-purple-200 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <PackageCheck className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Handovers</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Verify Goods</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setShowAddExpense(true)}
-                className="p-2.5 bg-slate-50/70 hover:bg-rose-50/50 active:scale-[0.98] border border-slate-200/80 hover:border-rose-200 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                  <Receipt className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Add Expense</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Bills & Rent</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setShowAddInvoice(true)}
-                className="p-2.5 bg-slate-50/70 hover:bg-emerald-50/50 active:scale-[0.98] border border-slate-200/80 hover:border-emerald-200 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Add Invoice</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Bill Client</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* 2. Master Actions */}
-          <div className="space-y-2 bg-white rounded-2xl p-3 border border-purple-100/90 shadow-xs">
-            <div className="flex items-center justify-between px-0.5 pb-1 border-b border-purple-50">
-              <div className="flex items-center gap-1.5">
-                <Scissors className="w-3.5 h-3.5 text-purple-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-purple-950">
-                  Master Actions
-                </h3>
-              </div>
-              <span className="text-[10px] text-purple-700 font-bold bg-purple-50 px-1.5 py-0.2 rounded-full">
-                5 Actions
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5 pt-1">
-              <button
-                onClick={() => setShowRecordCutModal(true)}
-                className="p-2.5 bg-purple-50/50 hover:bg-purple-100/60 active:scale-[0.98] border border-purple-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <Scissors className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Record Cut</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Lays & Fabric Cuts</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setShowAssignTailorModal(true)}
-                className="p-2.5 bg-purple-50/50 hover:bg-purple-100/60 active:scale-[0.98] border border-purple-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Assign Tailor</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Work Bundles</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/assignments')}
-                className="p-2.5 bg-purple-50/50 hover:bg-purple-100/60 active:scale-[0.98] border border-purple-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-200/70 text-purple-800 flex items-center justify-center shrink-0">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Tailor Jobs</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Active Work</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/cuttings')}
-                className="p-2.5 bg-purple-50/50 hover:bg-purple-100/60 active:scale-[0.98] border border-purple-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-200/70 text-purple-800 flex items-center justify-center shrink-0">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Fabric Cuts</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Sets Balance</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/handovers')}
-                className="p-2.5 bg-purple-50/50 hover:bg-purple-100/60 active:scale-[0.98] border border-purple-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-purple-200/70 text-purple-800 flex items-center justify-center shrink-0">
-                  <PackageCheck className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Handover</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Send to Admin</p>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* 3. Tailor Actions */}
-          <div className="space-y-2 bg-white rounded-2xl p-3 border border-emerald-100/90 shadow-xs">
-            <div className="flex items-center justify-between px-0.5 pb-1 border-b border-emerald-50">
-              <div className="flex items-center gap-1.5">
-                <Scissors className="w-3.5 h-3.5 text-emerald-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-950">
-                  Tailor Actions
-                </h3>
-              </div>
-              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded-full">
-                4 Actions
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 pt-1">
-              <button
-                onClick={() => navigate('/orders/assignments')}
-                className="p-2.5 bg-emerald-50/50 hover:bg-emerald-100/60 active:scale-[0.98] border border-emerald-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <Scissors className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Orders</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Work Queue</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/assignments')}
-                className="p-2.5 bg-emerald-50/50 hover:bg-emerald-100/60 active:scale-[0.98] border border-emerald-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Daily Log</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Submit Work</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/orders/assignments')}
-                className="p-2.5 bg-emerald-50/50 hover:bg-emerald-100/60 active:scale-[0.98] border border-emerald-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-200/70 text-emerald-800 flex items-center justify-center shrink-0">
-                  <Receipt className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Rates</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Wage Ledgers</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => navigate('/setup/tailors')}
-                className="p-2.5 bg-emerald-50/50 hover:bg-emerald-100/60 active:scale-[0.98] border border-emerald-100/80 rounded-xl flex items-center gap-2 text-left shadow-2xs transition-all cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-200/70 text-emerald-800 flex items-center justify-center shrink-0">
-                  <Sliders className="w-4 h-4" />
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-slate-800 leading-tight truncate">Portal</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Floor Login</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+        <HomeActionsTab
+          setShowAddFabric={setShowAddFabric}
+          setShowAddExpense={setShowAddExpense}
+          setShowAddInvoice={setShowAddInvoice}
+          setShowRecordCutModal={setShowRecordCutModal}
+          setShowAssignTailorModal={setShowAssignTailorModal}
+          navigate={navigate}
+        />
       )}
 
       {/* SUB-TAB 3: SUPPLIERS */}
@@ -1121,316 +683,23 @@ export default function Home() {
 
       {/* SUB-TAB 4: FEED */}
       {activeTab === 'feed' && (
-        <div className="space-y-3 animate-in fade-in duration-200">
-          {/* Admin Setup Progress Widget */}
-          {progressPercent === 100 ? (
-            <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/5 rounded-2xl p-3.5 border border-emerald-200/80 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black uppercase tracking-wider text-emerald-900">
-                        Factory Configured
-                      </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        100% Ready
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      All 7 factory milestones active and running
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsSetupExpanded(!isSetupExpanded)}
-                    className="text-[11px] font-bold text-emerald-700 bg-white hover:bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-200 shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <span>{isSetupExpanded ? 'Hide' : 'Tasks'}</span>
-                    {isSetupExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/setup')}
-                    className="text-[11px] font-bold text-slate-600 bg-white hover:bg-slate-50 px-2 py-1 rounded-xl border border-slate-200 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    Manage →
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Factory Stats Pill Grid */}
-              <div className="grid grid-cols-4 gap-1.5 mt-3 pt-2.5 border-t border-emerald-200/40 text-center">
-                <div className="bg-white/90 rounded-xl p-1.5 border border-emerald-100/80">
-                  <p className="text-xs font-black text-slate-800">{machines.length}</p>
-                  <p className="text-[9px] font-semibold text-slate-500 uppercase">Machines</p>
-                </div>
-                <div className="bg-white/90 rounded-xl p-1.5 border border-emerald-100/80">
-                  <p className="text-xs font-black text-slate-800">{masters.length}</p>
-                  <p className="text-[9px] font-semibold text-slate-500 uppercase">Masters</p>
-                </div>
-                <div className="bg-white/90 rounded-xl p-1.5 border border-emerald-100/80">
-                  <p className="text-xs font-black text-slate-800">{tailors.length}</p>
-                  <p className="text-[9px] font-semibold text-slate-500 uppercase">Tailors</p>
-                </div>
-                <div className="bg-white/90 rounded-xl p-1.5 border border-emerald-100/80">
-                  <p className="text-xs font-black text-slate-800">{fabrics.length}</p>
-                  <p className="text-[9px] font-semibold text-slate-500 uppercase">Fabric</p>
-                </div>
-              </div>
-
-              {/* Toggled Task Checklist */}
-              {isSetupExpanded && (
-                <div className="space-y-1.5 mt-3 pt-2.5 border-t border-emerald-200/40 animate-in fade-in duration-150">
-                  {setupTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => navigate(task.route || '/setup')}
-                      className="p-2 rounded-xl border bg-white/90 border-emerald-100/80 flex items-center justify-between cursor-pointer hover:bg-white transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-emerald-500" />
-                        <span className="text-xs font-medium text-slate-700">{task.title}</span>
-                      </div>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        {task.tag}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Setup Progress
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black text-indigo-600">
-                    {progressPercent}% Complete
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/setup')}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
-                  >
-                    Manage →
-                  </button>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-2.5">
-                <div
-                  className="bg-indigo-600 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                {setupTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => navigate(task.route || '/setup')}
-                    className={`p-2 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${task.done
-                        ? 'bg-slate-50/70 border-slate-200/70 text-slate-600'
-                        : 'bg-indigo-50/40 border-indigo-100 hover:bg-indigo-50 text-slate-900'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2
-                        className={`w-3.5 h-3.5 flex-shrink-0 ${task.done ? 'text-emerald-500' : 'text-slate-300'
-                          }`}
-                      />
-                      <span className={`text-xs font-medium ${task.done ? 'line-through text-slate-400' : ''}`}>
-                        {task.title}
-                      </span>
-                    </div>
-                    <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${task.done
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-indigo-100 text-indigo-700'
-                        }`}
-                    >
-                      {task.tag}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Real-time Activity Feed Card */}
-          <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs space-y-3">
-            {/* Header with live pulse */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Activity className="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Floor Activity Feed
-                  </h3>
-                  <p className="text-[10px] text-slate-500">Live operational event stream</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200/70">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[10px] font-bold text-slate-600">
-                  {filteredFeedActivities.length} Recent {filteredFeedActivities.length === 1 ? 'Activity' : 'Activities'}
-                </span>
-              </div>
-            </div>
-
-            {/* Mobile Search Bar */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={feedSearchQuery}
-                onChange={(e) => setFeedSearchQuery(e.target.value)}
-                placeholder="Search lot, tailor, master, invoice..."
-                className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-slate-50/80 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-              />
-              {feedSearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setFeedSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Category Filter Pills (Touch Scrollable) */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-nowrap">
-              {[
-                { id: 'all', label: 'All', icon: Activity, count: feedCategoryCounts.all },
-                { id: 'cutting', label: 'Cutting', icon: Scissors, count: feedCategoryCounts.cutting },
-                { id: 'stitching', label: 'Stitching', icon: Layers, count: feedCategoryCounts.stitching },
-                { id: 'quality', label: 'Quality', icon: ShieldCheck, count: feedCategoryCounts.quality },
-                { id: 'delivery', label: 'Delivery', icon: Truck, count: feedCategoryCounts.delivery },
-                { id: 'expense', label: 'Expenses', icon: IndianRupee, count: feedCategoryCounts.expense },
-              ].map((pill) => {
-                const isSelected = feedCategory === pill.id;
-                const Icon = pill.icon;
-                return (
-                  <button
-                    key={pill.id}
-                    type="button"
-                    onClick={() => setFeedCategory(pill.id)}
-                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${isSelected
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 border border-slate-200/50'
-                      }`}
-                  >
-                    {Icon && <Icon className="w-3 h-3 shrink-0" />}
-                    <span>{pill.label}</span>
-                    <span
-                      className={`text-[9px] px-1 py-0.2 rounded-full font-black ${isSelected ? 'bg-indigo-700/80 text-white' : 'bg-slate-200 text-slate-600'
-                        }`}
-                    >
-                      {pill.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Activities List */}
-            <div className="space-y-2 pt-1">
-              {filteredFeedActivities.length === 0 ? (
-                <div className="py-8 text-center bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
-                  <Clock className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs font-bold text-slate-600">No activity recorded</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {feedSearchQuery || feedCategory !== 'all'
-                      ? 'No events match your active filters.'
-                      : 'Events will appear here as your floor operates.'}
-                  </p>
-                  {(feedSearchQuery || feedCategory !== 'all') && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFeedCategory('all');
-                        setFeedSearchQuery('');
-                      }}
-                      className="mt-2.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
-                    >
-                      Reset Filters
-                    </button>
-                  )}
-                </div>
-              ) : (
-                filteredFeedActivities.map((act) => {
-                  const Icon = act.icon;
-                  return (
-                    <div
-                      key={act.id}
-                      onClick={() => navigate(act.route)}
-                      className="group p-2.5 rounded-xl border border-slate-200/70 bg-white hover:bg-slate-50/80 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between gap-2.5 shadow-2xs"
-                    >
-                      {/* Left: Icon container */}
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 shadow-2xs ${act.iconBg}`}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-xs font-bold text-slate-800 truncate leading-snug">
-                              {act.title}
-                            </p>
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full border shrink-0 ${act.badgeColor}`}
-                            >
-                              {act.badge}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                            {act.subtitle}
-                          </p>
-                          <span className="text-[9px] text-slate-400 font-medium mt-0.5 block">
-                            {act.displayDate}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Right: Metrics & Chevron */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <p className="text-xs font-black text-slate-900 leading-tight">
-                            {act.metric}
-                          </p>
-                          {act.metricSub && (
-                            <p className="text-[9px] font-semibold text-slate-400 mt-0.5">
-                              {act.metricSub}
-                            </p>
-                          )}
-                        </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 transition-colors shrink-0" />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
+        <HomeFeedTab
+          progressPercent={progressPercent}
+          isSetupExpanded={isSetupExpanded}
+          setIsSetupExpanded={setIsSetupExpanded}
+          setupTasks={setupTasks}
+          machines={machines}
+          masters={masters}
+          tailors={tailors}
+          fabrics={fabrics}
+          filteredFeedActivities={filteredFeedActivities}
+          feedSearchQuery={feedSearchQuery}
+          setFeedSearchQuery={setFeedSearchQuery}
+          feedCategory={feedCategory}
+          setFeedCategory={setFeedCategory}
+          feedCategoryCounts={feedCategoryCounts}
+          navigate={navigate}
+        />
       )}
 
       {/* Modals for 1-Tap quick actions */}

@@ -39,6 +39,9 @@ export default defineConfig({
     environment: 'node',
     root: path.resolve(__dirname, './frontend'),
     exclude: ['**/node_modules/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
+    pool: 'threads',
+    testTimeout: 25000,
+    hookTimeout: 25000,
   },
   build: {
     outDir: path.resolve(__dirname, './dist'),

@@ -162,6 +162,16 @@ async function sendPasswordResetOtpEmail(toEmail, otp, adminName = 'Admin') {
   const smtpPass = (env.SMTP_PASS || env.GMAIL_APP_PASSWORD || env.EMAIL_PASS || '').replace(/\s+/g, '');
   const fromName = env.SMTP_FROM_NAME || 'Fabric Manager Security';
 
+  // Always simulate in test environment to guarantee hermetic offline testing
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+    return {
+      success: true,
+      simulated: true,
+      message: `Test mode: OTP simulated as ${otp}.`,
+      otp,
+    };
+  }
+
   // Check if Gmail SMTP credentials are provided
   if (!smtpUser || !smtpPass) {
     console.log('\n======================================================');

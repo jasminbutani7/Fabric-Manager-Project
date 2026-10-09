@@ -7,7 +7,7 @@ const crypto = require('crypto');
 function verifyPbkdf2Password(password, storedHash) {
   if (!password || !storedHash) return false;
   if (!storedHash.startsWith('pbkdf2$')) {
-    // Plaintext or legacy fallback
+    // Legacy fallback for unmigrated legacy users
     return password === storedHash;
   }
 
@@ -15,13 +15,26 @@ function verifyPbkdf2Password(password, storedHash) {
   if (parts.length !== 4) return false;
 
   const iterations = parseInt(parts[1], 10);
-  const salt = Buffer.from(parts[2], 'hex');
-  const expectedHash = parts[3];
+  if (isNaN(iterations) || iterations <= 0) return false;
 
-  const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
-  const actualHash = derivedKey.toString('hex');
+  try {
+    const salt = Buffer.from(parts[2], 'hex');
+    const expectedHash = parts[3];
 
-  return crypto.timingSafeEqual(Buffer.from(actualHash), Buffer.from(expectedHash));
+    const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+    const actualHash = derivedKey.toString('hex');
+
+    const actualBuf = Buffer.from(actualHash);
+    const expectedBuf = Buffer.from(expectedHash);
+
+    if (actualBuf.length !== expectedBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(actualBuf, expectedBuf);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -31,6 +44,26 @@ function hashPasswordPbkdf2(password, iterations = 100000) {
   const salt = crypto.randomBytes(16);
   const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
   return `pbkdf2$${iterations}$${salt.toString('hex')}$${derivedKey.toString('hex')}`;
+}
+
+/**
+ * Hash a 4-to-6 digit worker PIN using PBKDF2
+ */
+function hashWorkerPin(pin, iterations = 100000) {
+  return hashPasswordPbkdf2(String(pin || '').trim(), iterations);
+}
+
+/**
+ * Verify a worker PIN against stored PBKDF2 hash or legacy PIN
+ */
+function verifyWorkerPin(pin, storedPinOrHash) {
+  if (!pin || !storedPinOrHash) return false;
+  const cleanPin = String(pin).trim();
+  if (storedPinOrHash.startsWith('pbkdf2$')) {
+    return verifyPbkdf2Password(cleanPin, storedPinOrHash);
+  }
+  // Backward compatibility with legacy plaintext PINs during migration
+  return cleanPin === String(storedPinOrHash).trim();
 }
 
 /**
@@ -47,5 +80,7 @@ function sanitizeMobileNumber(phone) {
 module.exports = {
   verifyPbkdf2Password,
   hashPasswordPbkdf2,
+  hashWorkerPin,
+  verifyWorkerPin,
   sanitizeMobileNumber,
 };
