@@ -110,6 +110,9 @@ export function useRealtimeSyncListener({
       });
     } else if (type === 'CUTTING_DELETED' && syncId) {
       setCuttings((prev) => prev.filter((c) => c.id !== syncId));
+      setTailorAssignments((prev) => prev.filter((a) => a.cuttingId !== syncId && a.cutting_id !== syncId));
+      setMasterHandovers((prev) => prev.filter((h) => h.cuttingId !== syncId && h.cutting_id !== syncId));
+      setThreadCuttingAssignments((prev) => prev.filter((tc) => tc.cuttingId !== syncId && tc.cutting_id !== syncId));
     } else if (type === 'HANDOVER_UPDATED' && item?.id) {
       setMasterHandovers((prev) => {
         const exists = prev.some((h) => h.id === item.id);
@@ -126,6 +129,13 @@ export function useRealtimeSyncListener({
       });
     } else if (type === 'FABRIC_DELETED' && syncId) {
       setFabrics((prev) => prev.filter((f) => f.id !== syncId));
+      setCuttings((prev) => prev.filter((c) => c.fabricId !== syncId && c.fabric_id !== syncId));
+      setTailorAssignments((prev) => prev.filter((a) => a.fabricId !== syncId && a.fabric_id !== syncId));
+      setMasterHandovers((prev) => prev.filter((h) => h.fabricId !== syncId && h.fabric_id !== syncId));
+      setThreadCuttingAssignments((prev) => prev.filter((tc) => tc.fabricId !== syncId && tc.fabric_id !== syncId));
+      if (setDeliveryLogs) {
+        setDeliveryLogs((prev) => prev.filter((dl) => dl.fabricId !== syncId && dl.fabric_id !== syncId));
+      }
     } else if (type === 'THREAD_UPDATED' && item?.id) {
       setThreadCuttingAssignments((prev) => {
         const exists = prev.some((t) => t.id === item.id);

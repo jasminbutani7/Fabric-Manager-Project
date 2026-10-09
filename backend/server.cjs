@@ -66,11 +66,19 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-// Mount Routes
+// BFF Architecture Notice Middleware for secondary Express CRUD routes
+const bffNoticeMiddleware = (req, res, next) => {
+  res.setHeader('X-BFF-Notice', 'Direct Supabase PostgREST is primary client API for CRUD; Express BFF provides server-side auth/secrets');
+  next();
+};
+
+// Mount Primary BFF Routes (active client endpoints for OTP, email, password recovery)
 app.use('/api/auth', authRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/production', productionRoutes);
-app.use('/api/finance', financeRoutes);
+
+// Mount Secondary Direct REST Endpoints (protected by authenticateTenant middleware)
+app.use('/api/inventory', bffNoticeMiddleware, inventoryRoutes);
+app.use('/api/production', bffNoticeMiddleware, productionRoutes);
+app.use('/api/finance', bffNoticeMiddleware, financeRoutes);
 
 // 404 Handler for unmatched API routes
 app.use('/api', (req, res) => {

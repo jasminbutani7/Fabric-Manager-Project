@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ManagementProvider } from './context/ManagementContext';
 import { useAuth } from './context/useAuth';
 import MobileLayout from './components/layout/MobileLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const Home = lazy(() => import('./pages/Home'));
 const SignIn = lazy(() => import('./pages/SignIn'));
@@ -138,14 +139,16 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ManagementProvider>
-        <BrowserRouter>
-          <Suspense fallback={<RouteLoading />}>
-            <AppRoutes />
-          </Suspense>
-        </BrowserRouter>
-      </ManagementProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ManagementProvider>
+          <BrowserRouter>
+            <Suspense fallback={<RouteLoading />}>
+              <AppRoutes />
+            </Suspense>
+          </BrowserRouter>
+        </ManagementProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
