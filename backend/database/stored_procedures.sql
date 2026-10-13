@@ -440,8 +440,47 @@ BEGIN
 END;
 $$;
 
+-- 8. Request Password Reset Check
+CREATE OR REPLACE FUNCTION public.request_password_reset_check(p_email TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_exists BOOLEAN;
+    v_clean_email TEXT;
+BEGIN
+    v_clean_email := lower(trim(COALESCE(p_email, '')));
+    SELECT EXISTS (
+        SELECT 1 FROM public.users
+        WHERE lower(trim(email)) = v_clean_email
+    ) INTO v_exists;
+
+    RETURN jsonb_build_object(
+        'exists', v_exists
+    );
+END;
+$$;
+
+-- 9. Update User Password
+CREATE OR REPLACE FUNCTION public.update_user_password(p_email TEXT, p_new_password TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.users
+    SET password = p_new_password, updated_at = NOW()
+    WHERE lower(trim(email)) = lower(trim(p_email));
+    RETURN FOUND;
+END;
+$$;
+
 -- Grant execute permissions to anon and authenticated roles
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
 NOTIFY pgrst, 'reload schema';
+
 

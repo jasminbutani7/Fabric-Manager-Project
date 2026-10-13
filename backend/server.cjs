@@ -25,7 +25,7 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint
-app.get('/api/health', async (req, res) => {
+app.get(['/api/health', '/health'], async (req, res) => {
   try {
     const dbRes = await pool.query('SELECT NOW() as current_time, version()');
     return res.json({
@@ -46,7 +46,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // System stats endpoint
-app.get('/api/stats', async (req, res) => {
+app.get(['/api/stats', '/stats'], async (req, res) => {
   try {
     const tables = ['users', 'masters', 'machines', 'tailors', 'helpers', 'suppliers', 'fabrics', 'cuttings', 'invoices', 'expenses'];
     const counts = {};
@@ -73,15 +73,15 @@ const bffNoticeMiddleware = (req, res, next) => {
 };
 
 // Mount Primary BFF Routes (active client endpoints for OTP, email, password recovery)
-app.use('/api/auth', authRoutes);
+app.use(['/api/auth', '/auth'], authRoutes);
 
 // Mount Secondary Direct REST Endpoints (protected by authenticateTenant middleware)
-app.use('/api/inventory', bffNoticeMiddleware, inventoryRoutes);
-app.use('/api/production', bffNoticeMiddleware, productionRoutes);
-app.use('/api/finance', bffNoticeMiddleware, financeRoutes);
+app.use(['/api/inventory', '/inventory'], bffNoticeMiddleware, inventoryRoutes);
+app.use(['/api/production', '/production'], bffNoticeMiddleware, productionRoutes);
+app.use(['/api/finance', '/finance'], bffNoticeMiddleware, financeRoutes);
 
 // 404 Handler for unmatched API routes
-app.use('/api', (req, res) => {
+app.use(['/api', '/'], (req, res) => {
   res.status(404).json({ success: false, error: `API route not found: ${req.method} ${req.originalUrl}` });
 });
 

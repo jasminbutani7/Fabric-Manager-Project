@@ -551,34 +551,45 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email: cleanEmail }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
 
-      if (response.ok && data.success) {
-        // Store in sessionStorage as backup
-        if (data.demoOtp) {
-          try {
-            const otpRecords = JSON.parse(sessionStorage.getItem('fm_admin_otps') || '{}');
-            otpRecords[cleanEmail] = { otp: data.demoOtp, expiresAt: Date.now() + OTP_EXPIRY_MS };
-            sessionStorage.setItem('fm_admin_otps', JSON.stringify(otpRecords));
-          } catch {}
+        if (response.ok && data.success) {
+          // Store in sessionStorage as backup
+          if (data.demoOtp) {
+            try {
+              const otpRecords = JSON.parse(sessionStorage.getItem('fm_admin_otps') || '{}');
+              otpRecords[cleanEmail] = { otp: data.demoOtp, expiresAt: Date.now() + OTP_EXPIRY_MS };
+              sessionStorage.setItem('fm_admin_otps', JSON.stringify(otpRecords));
+            } catch {}
+          }
+
+          return {
+            success: true,
+            email: cleanEmail,
+            message: data.message,
+            simulated: data.simulated,
+            demoOtp: data.demoOtp,
+          };
         }
 
-        return {
-          success: true,
-          email: cleanEmail,
-          message: data.message,
-          simulated: data.simulated,
-          demoOtp: data.demoOtp,
-        };
-      }
-
-      // If user not found or validation error from backend, throw specific error
-      if (!response.ok && data.error) {
-        throw new Error(data.error);
+        // If user not found or validation error from backend, throw specific error
+        if (!response.ok && data.error) {
+          throw new Error(data.error);
+        }
+      } else {
+        console.warn(`Backend /api/auth/forgot-password returned non-JSON response (${response.status}), proceeding with client fallback.`);
       }
     } catch (apiErr) {
-      // If error was explicitly returned by backend, rethrow it
-      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('Failed to fetch')) {
+      // If error was explicitly returned by backend business validation, rethrow it
+      if (
+        apiErr.message &&
+        !apiErr.message.toLowerCase().includes('fetch') &&
+        !apiErr.message.toLowerCase().includes('json') &&
+        !apiErr.message.toLowerCase().includes('unexpected') &&
+        !apiErr.message.toLowerCase().includes('network')
+      ) {
         throw apiErr;
       }
       console.warn('Backend /api/auth/forgot-password unavailable, using client fallback:', apiErr.message);
@@ -586,11 +597,27 @@ export function AuthProvider({ children }) {
 
     // 2. Client-side Fallback (if backend is offline or standalone)
     if (isSupabaseConfigured && supabase) {
+      let userFound = false;
       const { data: checkData, error: checkErr } = await supabase.rpc('request_password_reset_check', {
         p_email: cleanEmail,
       });
 
-      if (checkErr || !checkData?.exists) {
+      if (!checkErr && checkData?.exists) {
+        userFound = true;
+      } else {
+        // Direct query fallback in case RPC schema cache has not yet reloaded
+        const { data: userData, error: userErr } = await supabase
+          .from('users')
+          .select('id, email')
+          .ilike('email', cleanEmail)
+          .limit(1);
+
+        if (!userErr && userData && userData.length > 0) {
+          userFound = true;
+        }
+      }
+
+      if (!userFound) {
         throw new Error('No registered Admin account found with this email address.');
       }
     }
@@ -647,21 +674,32 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email: cleanEmail, otp: token }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
 
-      if (response.ok && data.success) {
-        sessionStorage.setItem(
-          'fm_admin_verified_otp',
-          JSON.stringify({ email: cleanEmail, otp: token, expiresAt: Date.now() + 15 * 60 * 1000 })
-        );
-        return { success: true };
-      }
+        if (response.ok && data.success) {
+          sessionStorage.setItem(
+            'fm_admin_verified_otp',
+            JSON.stringify({ email: cleanEmail, otp: token, expiresAt: Date.now() + 15 * 60 * 1000 })
+          );
+          return { success: true };
+        }
 
-      if (!response.ok && data.error) {
-        throw new Error(data.error);
+        if (!response.ok && data.error) {
+          throw new Error(data.error);
+        }
+      } else {
+        console.warn(`Backend /api/auth/verify-otp returned non-JSON response (${response.status}), proceeding with client verification.`);
       }
     } catch (apiErr) {
-      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('Failed to fetch')) {
+      if (
+        apiErr.message &&
+        !apiErr.message.toLowerCase().includes('fetch') &&
+        !apiErr.message.toLowerCase().includes('json') &&
+        !apiErr.message.toLowerCase().includes('unexpected') &&
+        !apiErr.message.toLowerCase().includes('network')
+      ) {
         throw apiErr;
       }
       console.warn('Backend /api/auth/verify-otp unavailable, using client fallback:', apiErr.message);
@@ -731,19 +769,30 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email: cleanEmail, newPassword, otp: savedOtp }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
 
-      if (response.ok && data.success) {
-        sessionStorage.removeItem('fm_admin_verified_otp');
-        sessionStorage.removeItem('fm_admin_otps');
-        return { success: true, message: data.message };
-      }
+        if (response.ok && data.success) {
+          sessionStorage.removeItem('fm_admin_verified_otp');
+          sessionStorage.removeItem('fm_admin_otps');
+          return { success: true, message: data.message };
+        }
 
-      if (!response.ok && data.error) {
-        throw new Error(data.error);
+        if (!response.ok && data.error) {
+          throw new Error(data.error);
+        }
+      } else {
+        console.warn(`Backend /api/auth/reset-password returned non-JSON response (${response.status}), proceeding with direct database update.`);
       }
     } catch (apiErr) {
-      if (apiErr.message && !apiErr.message.includes('fetch') && !apiErr.message.includes('Failed to fetch')) {
+      if (
+        apiErr.message &&
+        !apiErr.message.toLowerCase().includes('fetch') &&
+        !apiErr.message.toLowerCase().includes('json') &&
+        !apiErr.message.toLowerCase().includes('unexpected') &&
+        !apiErr.message.toLowerCase().includes('network')
+      ) {
         throw apiErr;
       }
       console.warn('Backend /api/auth/reset-password unavailable, using client fallback:', apiErr.message);
