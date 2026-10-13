@@ -798,8 +798,13 @@ async function runMigration() {
         );
       END;
       $$;
+
+      -- Grant execute permissions to anon and authenticated roles for Supabase PostgREST RPC access
+      GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
+      NOTIFY pgrst, 'reload schema';
     `);
-    console.log('✓ Secure RPC authentication functions installed.');
+    console.log('✓ Secure RPC authentication functions installed, granted to anon/authenticated, and schema reloaded.');
 
     console.log('4. Applying 004_atomic_transactions.sql...');
     const atomicSqlPath = path.resolve(__dirname, '004_atomic_transactions.sql');

@@ -3,6 +3,11 @@
 -- Migration 004: Atomic RPCs for Cutting Batches, Tailor Assignments & Invoicing
 -- =============================================================================
 
+-- Drop existing versions first to allow parameter modifications without signature conflict
+DROP FUNCTION IF EXISTS public.rpc_record_cutting_batch CASCADE;
+DROP FUNCTION IF EXISTS public.rpc_create_tailor_assignment CASCADE;
+DROP FUNCTION IF EXISTS public.rpc_create_completed_lot_invoice CASCADE;
+
 -- 1. ATOMIC RECORD CUTTING BATCH
 -- Atomically inserts cutting record and transitions fabric status to 'In Cutting'
 CREATE OR REPLACE FUNCTION public.rpc_record_cutting_batch(
@@ -367,3 +372,8 @@ BEGIN
     );
 END;
 $$;
+
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
+NOTIFY pgrst, 'reload schema';
+

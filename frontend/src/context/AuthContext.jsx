@@ -226,6 +226,13 @@ export function AuthProvider({ children }) {
           p_phone: cleanPhone,
         });
 
+        if (chErr) {
+          console.error('Error fetching auth challenge:', chErr);
+          if (chErr.code === 'PGRST202' || chErr.message?.includes('not found') || chErr.code === '404') {
+            throw new Error('Authentication database service is not available. Please try again shortly or contact administrator.');
+          }
+        }
+
         if (!chErr && challenge && challenge.exists) {
           let hashResponse = '';
           let plainPassword = null;

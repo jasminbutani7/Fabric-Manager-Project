@@ -270,3 +270,178 @@ EXCEPTION WHEN OTHERS THEN
     );
 END;
 $$;
+
+-- 5. User Auth Challenge-Response (Zero-knowledge password authentication)
+CREATE OR REPLACE FUNCTION public.get_auth_user_challenge(p_phone TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_user RECORD;
+    v_clean_phone TEXT;
+BEGIN
+    v_clean_phone := regexp_replace(COALESCE(p_phone, ''), '\D', '', 'g');
+    IF length(v_clean_phone) > 10 THEN
+        v_clean_phone := substring(v_clean_phone from length(v_clean_phone) - 9);
+    END IF;
+
+    IF length(v_clean_phone) <> 10 THEN
+        RETURN jsonb_build_object('exists', false, 'error', 'Invalid mobile number format');
+    END IF;
+
+    SELECT id, name, phone, email, company_name, role, avatar, password
+    INTO v_user
+    FROM public.users
+    WHERE regexp_replace(phone, '\D', '', 'g') LIKE ('%' || v_clean_phone)
+    LIMIT 1;
+
+    IF v_user.id IS NULL THEN
+        RETURN jsonb_build_object('exists', false);
+    END IF;
+
+    IF v_user.password LIKE 'pbkdf2:%' THEN
+        DECLARE
+            v_parts TEXT[];
+        BEGIN
+            v_parts := string_to_array(v_user.password, ':');
+            RETURN jsonb_build_object(
+                'exists', true,
+                'format', 'pbkdf2',
+                'iterations', v_parts[2]::int,
+                'salt', v_parts[3],
+                'email', v_user.email,
+                'id', v_user.id
+            );
+        END;
+    ELSE
+        RETURN jsonb_build_object(
+            'exists', true,
+            'format', 'legacy',
+            'email', v_user.email,
+            'id', v_user.id
+        );
+    END IF;
+END;
+$$;
+
+-- 6. Verify User Auth
+CREATE OR REPLACE FUNCTION public.verify_user_auth(
+    p_phone TEXT,
+    p_hash_response TEXT,
+    p_plain_password TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_user RECORD;
+    v_clean_phone TEXT;
+    v_expected_hash TEXT;
+    v_parts TEXT[];
+BEGIN
+    v_clean_phone := regexp_replace(COALESCE(p_phone, ''), '\D', '', 'g');
+    IF length(v_clean_phone) > 10 THEN
+        v_clean_phone := substring(v_clean_phone from length(v_clean_phone) - 9);
+    END IF;
+
+    SELECT id, name, phone, email, company_name, role, avatar, password
+    INTO v_user
+    FROM public.users
+    WHERE regexp_replace(phone, '\D', '', 'g') LIKE ('%' || v_clean_phone)
+    LIMIT 1;
+
+    IF v_user.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'User not found');
+    END IF;
+
+    IF v_user.password LIKE 'pbkdf2:%' THEN
+        v_parts := string_to_array(v_user.password, ':');
+        v_expected_hash := lower(v_parts[4]);
+        IF lower(p_hash_response) = v_expected_hash THEN
+            RETURN jsonb_build_object(
+                'success', true,
+                'user', jsonb_build_object(
+                    'id', v_user.id,
+                    'name', v_user.name,
+                    'phone', v_user.phone,
+                    'email', v_user.email,
+                    'companyName', v_user.company_name,
+                    'role', COALESCE(v_user.role, 'Admin'),
+                    'avatar', v_user.avatar
+                )
+            );
+        ELSE
+            RETURN jsonb_build_object('success', false, 'error', 'Incorrect password');
+        END IF;
+    ELSE
+        IF p_plain_password IS NOT NULL AND (v_user.password = p_plain_password OR v_user.password LIKE 'enc:%') THEN
+            RETURN jsonb_build_object(
+                'success', true,
+                'needsUpgrade', true,
+                'user', jsonb_build_object(
+                    'id', v_user.id,
+                    'name', v_user.name,
+                    'phone', v_user.phone,
+                    'email', v_user.email,
+                    'companyName', v_user.company_name,
+                    'role', COALESCE(v_user.role, 'Admin'),
+                    'avatar', v_user.avatar
+                )
+            );
+        ELSE
+            RETURN jsonb_build_object('success', false, 'error', 'Incorrect password');
+        END IF;
+    END IF;
+END;
+$$;
+
+-- 7. Check User Exists
+CREATE OR REPLACE FUNCTION public.check_user_exists(p_phone TEXT, p_email TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_clean_phone TEXT;
+    v_clean_email TEXT;
+    v_phone_exists BOOLEAN := FALSE;
+    v_email_exists BOOLEAN := FALSE;
+BEGIN
+    v_clean_phone := regexp_replace(COALESCE(p_phone, ''), '\D', '', 'g');
+    IF length(v_clean_phone) > 10 THEN
+        v_clean_phone := substring(v_clean_phone from length(v_clean_phone) - 9);
+    END IF;
+
+    v_clean_email := lower(trim(COALESCE(p_email, '')));
+
+    IF v_clean_phone <> '' THEN
+        SELECT EXISTS (
+            SELECT 1 FROM public.users
+            WHERE regexp_replace(phone, '\D', '', 'g') LIKE ('%' || v_clean_phone)
+        ) INTO v_phone_exists;
+    END IF;
+
+    IF v_clean_email <> '' THEN
+        SELECT EXISTS (
+            SELECT 1 FROM public.users
+            WHERE lower(trim(email)) = v_clean_email
+        ) INTO v_email_exists;
+    END IF;
+
+    RETURN jsonb_build_object(
+        'phoneExists', v_phone_exists,
+        'emailExists', v_email_exists
+    );
+END;
+$$;
+
+-- Grant execute permissions to anon and authenticated roles
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
+NOTIFY pgrst, 'reload schema';
+
