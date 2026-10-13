@@ -26,17 +26,19 @@ const projectRefMatch = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
 const projectRef = projectRefMatch ? projectRefMatch[1] : (process.env.SUPABASE_PROJECT_REF || env.SUPABASE_PROJECT_REF || '');
 
 // PostgreSQL Connection Pool (AWS ap-south-1 Pooler on Port 6543)
-const pool = new Pool({
-  host: process.env.SUPABASE_DB_HOST || env.SUPABASE_DB_HOST || 'aws-0-ap-south-1.pooler.supabase.com',
-  port: parseInt(process.env.SUPABASE_DB_PORT || env.SUPABASE_DB_PORT || '6543', 10),
-  user: projectRef ? `postgres.${projectRef}` : (process.env.SUPABASE_DB_USER || 'postgres'),
-  password: dbPassword,
-  database: process.env.SUPABASE_DB_NAME || env.SUPABASE_DB_NAME || 'postgres',
-  ssl: { rejectUnauthorized: false },
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
+const pool = dbPassword
+  ? new Pool({
+      host: process.env.SUPABASE_DB_HOST || env.SUPABASE_DB_HOST || 'aws-0-ap-south-1.pooler.supabase.com',
+      port: parseInt(process.env.SUPABASE_DB_PORT || env.SUPABASE_DB_PORT || '6543', 10),
+      user: projectRef ? `postgres.${projectRef}` : (process.env.SUPABASE_DB_USER || 'postgres'),
+      password: dbPassword,
+      database: process.env.SUPABASE_DB_NAME || env.SUPABASE_DB_NAME || 'postgres',
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    })
+  : null;
 
 // Direct Supabase Client
 const supabase = (supabaseUrl && supabaseAnonKey)
@@ -49,6 +51,9 @@ const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 async function query(text, params) {
+  if (!pool) {
+    throw new Error('Database direct pool password not configured in environment');
+  }
   const start = Date.now();
   const res = await pool.query(text, params);
   const duration = Date.now() - start;
@@ -56,6 +61,9 @@ async function query(text, params) {
 }
 
 async function getClient() {
+  if (!pool) {
+    throw new Error('Database direct pool password not configured in environment');
+  }
   return await pool.connect();
 }
 

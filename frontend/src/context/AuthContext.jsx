@@ -576,7 +576,17 @@ export function AuthProvider({ children }) {
 
         // If user not found or validation error from backend, throw specific error
         if (!response.ok && data.error) {
-          throw new Error(data.error);
+          if (
+            response.status >= 500 ||
+            data.error.toLowerCase().includes('sasl') ||
+            data.error.toLowerCase().includes('scram') ||
+            data.error.toLowerCase().includes('password must be a string') ||
+            data.error.toLowerCase().includes('connection')
+          ) {
+            console.warn('Backend /api/auth/forgot-password returned server driver error, proceeding with client fallback:', data.error);
+          } else {
+            throw new Error(data.error);
+          }
         }
       } else {
         console.warn(`Backend /api/auth/forgot-password returned non-JSON response (${response.status}), proceeding with client fallback.`);
@@ -780,7 +790,17 @@ export function AuthProvider({ children }) {
         }
 
         if (!response.ok && data.error) {
-          throw new Error(data.error);
+          if (
+            response.status >= 500 ||
+            data.error.toLowerCase().includes('sasl') ||
+            data.error.toLowerCase().includes('scram') ||
+            data.error.toLowerCase().includes('password must be a string') ||
+            data.error.toLowerCase().includes('connection')
+          ) {
+            console.warn('Backend /api/auth/reset-password returned server driver error, proceeding with direct database update:', data.error);
+          } else {
+            throw new Error(data.error);
+          }
         }
       } else {
         console.warn(`Backend /api/auth/reset-password returned non-JSON response (${response.status}), proceeding with direct database update.`);

@@ -1,4 +1,4 @@
-const { query } = require('../config/db.cjs');
+const { query, pool, supabase } = require('../config/db.cjs');
 const { verifyPbkdf2Password, hashPasswordPbkdf2, verifyWorkerPin: verifyWorkerPinHelper, sanitizeMobileNumber } = require('../config/security.cjs');
 
 /**
@@ -13,16 +13,25 @@ async function loginAdmin(req, res) {
       return res.status(400).json({ success: false, error: 'Phone and password are required' });
     }
 
-    const result = await query(
-      'SELECT id, name, phone, email, company_name, role, password, avatar FROM public.users WHERE phone = $1 LIMIT 1',
-      [cleanPhone]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'No user registered with this phone number' });
+    let user = null;
+    if (pool) {
+      const result = await query(
+        'SELECT id, name, phone, email, company_name, role, password, avatar FROM public.users WHERE phone = $1 LIMIT 1',
+        [cleanPhone]
+      );
+      if (result.rows.length > 0) user = result.rows[0];
+    } else if (supabase) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, phone, email, company_name, role, password, avatar')
+        .eq('phone', cleanPhone)
+        .limit(1);
+      if (!error && data && data.length > 0) user = data[0];
     }
 
-    const user = result.rows[0];
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'No user registered with this phone number' });
+    }
     const isPasswordValid = verifyPbkdf2Password(password, user.password);
 
     if (!isPasswordValid) {
@@ -165,20 +174,35 @@ async function forgotPassword(req, res) {
       });
     }
 
-    // 1. Verify user exists in public.users
-    const userResult = await query(
-      'SELECT id, name, phone, email FROM public.users WHERE LOWER(email) = LOWER($1) LIMIT 1',
-      [cleanEmail]
-    );
+    // 1. Verify user exists in public.users (try pool if available, fallback to Supabase REST)
+    let user = null;
+    if (pool) {
+      try {
+        const userResult = await query(
+          'SELECT id, name, phone, email FROM public.users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+          [cleanEmail]
+        );
+        if (userResult.rows.length > 0) user = userResult.rows[0];
+      } catch (err) {
+        console.warn('pg pool query failed in forgotPassword, trying Supabase REST:', err.message);
+      }
+    }
 
-    if (userResult.rows.length === 0) {
+    if (!user && supabase) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, phone, email')
+        .ilike('email', cleanEmail)
+        .limit(1);
+      if (!error && data && data.length > 0) user = data[0];
+    }
+
+    if (!user) {
       return res.status(404).json({
         success: false,
         error: 'No registered Admin account found with this email address.',
       });
     }
-
-    const user = userResult.rows[0];
 
     // 2. Generate cryptographically random 6-digit OTP
     const otp = String(Math.floor(100000 + Math.random() * 900000));
@@ -330,16 +354,35 @@ async function resetPassword(req, res) {
     // 1. Hash new password with PBKDF2
     const hashedPassword = hashPasswordPbkdf2(newPassword);
 
-    // 2. Update in PostgreSQL database
-    const updateRes = await query(
-      `UPDATE public.users 
-       SET password = $1, updated_at = NOW() 
-       WHERE LOWER(email) = LOWER($2) 
-       RETURNING id, name, phone, email, role`,
-      [hashedPassword, cleanEmail]
-    );
+    // 2. Update in PostgreSQL database (try pool if available, fallback to Supabase REST/RPC)
+    let updatedUser = null;
+    if (pool) {
+      try {
+        const updateRes = await query(
+          `UPDATE public.users 
+           SET password = $1, updated_at = NOW() 
+           WHERE LOWER(email) = LOWER($2) 
+           RETURNING id, name, phone, email, role`,
+          [hashedPassword, cleanEmail]
+        );
+        if (updateRes.rows.length > 0) updatedUser = updateRes.rows[0];
+      } catch (err) {
+        console.warn('pg pool update failed in resetPassword, trying Supabase REST:', err.message);
+      }
+    }
 
-    if (updateRes.rows.length === 0) {
+    if (!updatedUser && supabase) {
+      const { data: supaUpdated, error: supaErr } = await supabase
+        .from('users')
+        .update({ password: hashedPassword, updated_at: new Date().toISOString() })
+        .ilike('email', cleanEmail)
+        .select('id, name, phone, email, role');
+      if (!supaErr && supaUpdated && supaUpdated.length > 0) {
+        updatedUser = supaUpdated[0];
+      }
+    }
+
+    if (!updatedUser) {
       return res.status(404).json({
         success: false,
         error: 'Failed to update password. User account not found.',
@@ -352,7 +395,7 @@ async function resetPassword(req, res) {
     return res.json({
       success: true,
       message: 'Password has been successfully reset. You can now log in with your new password.',
-      user: updateRes.rows[0],
+      user: updatedUser,
     });
   } catch (err) {
     console.error('Error in resetPassword:', err);
