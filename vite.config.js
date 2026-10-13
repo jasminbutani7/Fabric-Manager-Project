@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // https://vite.dev/config/
 export default defineConfig({
   root: path.resolve(__dirname, './frontend'),
+  envDir: __dirname,
   publicDir: path.resolve(__dirname, './frontend/public'),
   server: {
     host: true,

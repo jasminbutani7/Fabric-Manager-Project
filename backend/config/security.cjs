@@ -2,16 +2,21 @@ const crypto = require('crypto');
 
 /**
  * Verify password against stored PBKDF2 hash
- * Format: pbkdf2$iterations$salt$hash
+ * Supports both colon format (pbkdf2:iterations:salt:hash) and dollar format (pbkdf2$iterations$salt$hash)
  */
 function verifyPbkdf2Password(password, storedHash) {
   if (!password || !storedHash) return false;
-  if (!storedHash.startsWith('pbkdf2$')) {
+  
+  const isColonFormat = storedHash.startsWith('pbkdf2:');
+  const isDollarFormat = storedHash.startsWith('pbkdf2$');
+
+  if (!isColonFormat && !isDollarFormat) {
     // Legacy fallback for unmigrated legacy users
     return password === storedHash;
   }
 
-  const parts = storedHash.split('$');
+  const delimiter = isColonFormat ? ':' : '$';
+  const parts = storedHash.split(delimiter);
   if (parts.length !== 4) return false;
 
   const iterations = parseInt(parts[1], 10);
@@ -19,10 +24,10 @@ function verifyPbkdf2Password(password, storedHash) {
 
   try {
     const salt = Buffer.from(parts[2], 'hex');
-    const expectedHash = parts[3];
+    const expectedHash = parts[3].toLowerCase();
 
     const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
-    const actualHash = derivedKey.toString('hex');
+    const actualHash = derivedKey.toString('hex').toLowerCase();
 
     const actualBuf = Buffer.from(actualHash);
     const expectedBuf = Buffer.from(expectedHash);
@@ -38,12 +43,13 @@ function verifyPbkdf2Password(password, storedHash) {
 }
 
 /**
- * Generate PBKDF2 hash for a password
+ * Generate canonical PBKDF2 hash for a password
+ * Format: pbkdf2:<iterations>:<saltHex>:<hashHex>
  */
 function hashPasswordPbkdf2(password, iterations = 100000) {
   const salt = crypto.randomBytes(16);
   const derivedKey = crypto.pbkdf2Sync(password, salt, iterations, 32, 'sha256');
-  return `pbkdf2$${iterations}$${salt.toString('hex')}$${derivedKey.toString('hex')}`;
+  return `pbkdf2:${iterations}:${salt.toString('hex')}:${derivedKey.toString('hex')}`;
 }
 
 /**

@@ -301,11 +301,12 @@ BEGIN
         RETURN jsonb_build_object('exists', false);
     END IF;
 
-    IF v_user.password LIKE 'pbkdf2:%' THEN
+    IF v_user.password LIKE 'pbkdf2:%' OR v_user.password LIKE 'pbkdf2$%' THEN
         DECLARE
+            v_delimiter TEXT := CASE WHEN v_user.password LIKE 'pbkdf2:%' THEN ':' ELSE '$' END;
             v_parts TEXT[];
         BEGIN
-            v_parts := string_to_array(v_user.password, ':');
+            v_parts := string_to_array(v_user.password, v_delimiter);
             RETURN jsonb_build_object(
                 'exists', true,
                 'format', 'pbkdf2',
@@ -342,6 +343,7 @@ DECLARE
     v_clean_phone TEXT;
     v_expected_hash TEXT;
     v_parts TEXT[];
+    v_delimiter TEXT;
 BEGIN
     v_clean_phone := regexp_replace(COALESCE(p_phone, ''), '\D', '', 'g');
     IF length(v_clean_phone) > 10 THEN
@@ -358,8 +360,9 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'User not found');
     END IF;
 
-    IF v_user.password LIKE 'pbkdf2:%' THEN
-        v_parts := string_to_array(v_user.password, ':');
+    IF v_user.password LIKE 'pbkdf2:%' OR v_user.password LIKE 'pbkdf2$%' THEN
+        v_delimiter := CASE WHEN v_user.password LIKE 'pbkdf2:%' THEN ':' ELSE '$' END;
+        v_parts := string_to_array(v_user.password, v_delimiter);
         v_expected_hash := lower(v_parts[4]);
         IF lower(p_hash_response) = v_expected_hash THEN
             RETURN jsonb_build_object(
