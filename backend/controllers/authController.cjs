@@ -225,9 +225,7 @@ async function forgotPassword(req, res) {
 
     return res.json({
       success: true,
-      message: emailResult.message || `Verification code sent to ${cleanEmail}`,
-      simulated: !!emailResult.simulated,
-      demoOtp: emailResult.simulated ? otp : undefined,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
     });
   } catch (err) {
     console.error('Error in forgotPassword:', err);

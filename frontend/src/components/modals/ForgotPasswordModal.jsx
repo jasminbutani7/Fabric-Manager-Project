@@ -96,13 +96,8 @@ export default function ForgotPasswordModal({
 
     try {
       setLoading(true);
-      const res = await sendAdminEmailOtp(emailVal.cleanedValue);
-      setDeliveryInfo({
-        simulated: !!res.simulated,
-        demoOtp: res.demoOtp,
-        message: res.message,
-      });
-      setSuccessMsg(res.message || 'OTP verification code sent to your email.');
+      await sendAdminEmailOtp(emailVal.cleanedValue);
+      setSuccessMsg(`A 6-digit verification code has been sent to ${emailVal.cleanedValue}. Please check your inbox or spam folder.`);
       setAdminStep(2);
       setResendCountdown(60);
     } catch (err) {
@@ -398,35 +393,21 @@ export default function ForgotPasswordModal({
                     </div>
                   </div>
 
-                  {/* Delivery Status Indicator */}
-                  {deliveryInfo?.simulated ? (
-                    <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-xl text-xs text-amber-900 space-y-1 animate-in fade-in">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold flex items-center gap-1.5 text-amber-800">
-                          <span>🧪 Dev Mode</span>
-                          <span className="text-[10px] bg-amber-200/80 px-1.5 py-0.5 rounded text-amber-900 font-semibold">Active</span>
-                        </span>
-                        {deliveryInfo.demoOtp && (
-                          <span className="font-mono bg-white border border-amber-300 px-2 py-0.5 rounded font-extrabold text-amber-950 text-xs tracking-wider">
-                            OTP: {deliveryInfo.demoOtp}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-amber-700 leading-tight">
-                        Gmail App Password not set in <code className="font-mono bg-white/70 px-1 rounded text-[10px]">.env</code>. You can use the OTP above or configure real delivery.
+                  {/* Production Email Delivery Status Notice */}
+                  <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl text-xs flex items-start gap-3 animate-in fade-in">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-slate-800 text-xs">Verification Code Sent</p>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        We sent a 6-digit code to <strong className="text-slate-900 font-semibold">{adminEmail}</strong>. Please enter it below.
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Can&apos;t find it? Check your Spam or Promotions folder.
                       </p>
                     </div>
-                  ) : deliveryInfo && !deliveryInfo.simulated ? (
-                    <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-start gap-2 animate-in fade-in">
-                      <Mail className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-bold text-indigo-900">Email Sent via Gmail SMTP</p>
-                        <p className="text-[11px] text-indigo-700 mt-0.5">
-                          A 6-digit verification code has been delivered to <strong>{adminEmail}</strong>. Please check your inbox or spam.
-                        </p>
-                      </div>
-                    </div>
-                  ) : null}
+                  </div>
 
                   <button
                     type="submit"

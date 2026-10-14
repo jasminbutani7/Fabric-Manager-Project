@@ -568,9 +568,7 @@ export function AuthProvider({ children }) {
           return {
             success: true,
             email: cleanEmail,
-            message: data.message,
-            simulated: data.simulated,
-            demoOtp: data.demoOtp,
+            message: data.message || `A 6-digit verification code has been sent to ${cleanEmail}.`,
           };
         }
 
@@ -662,9 +660,7 @@ export function AuthProvider({ children }) {
       success: true,
       email: cleanEmail,
       emailSent,
-      demoOtp: generatedOtp,
-      simulated: true,
-      message: 'OTP verification code generated.',
+      message: `A 6-digit verification code has been sent to ${cleanEmail}.`,
     };
   };
 

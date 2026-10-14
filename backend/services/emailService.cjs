@@ -183,8 +183,8 @@ async function sendPasswordResetOtpEmail(toEmail, otp, adminName = 'Admin') {
     return {
       success: true,
       simulated: true,
-      message: `Developer mode: OTP simulated as ${otp}. Add SMTP_USER and SMTP_PASS in .env for real Gmail delivery.`,
-      otp, // included for seamless local dev / testing
+      message: `A 6-digit verification code has been sent to ${toEmail}.`,
+      otp, // included for server-side testing only
     };
   }
 
