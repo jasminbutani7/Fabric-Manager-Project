@@ -113,8 +113,36 @@ async function runMigration() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       REVOKE ALL ON public.auth_secrets FROM anon, authenticated, public;
+    `);
 
+    console.log('2b. Ensuring password_resets table exists with RLS...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.password_resets (
+        id               TEXT PRIMARY KEY,
+        email            TEXT NOT NULL,
+        otp              TEXT NOT NULL,
+        user_id          TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+        user_name        TEXT,
+        attempts         INTEGER DEFAULT 0,
+        verified         BOOLEAN DEFAULT FALSE,
+        verified_at      TIMESTAMPTZ,
+        expires_at       TIMESTAMPTZ NOT NULL,
+        created_at       TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_password_resets_email ON public.password_resets(email);
+      CREATE INDEX IF NOT EXISTS idx_password_resets_expires_at ON public.password_resets(expires_at);
+      ALTER TABLE public.password_resets ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS "password_resets_service_only" ON public.password_resets;
+      CREATE POLICY "password_resets_service_only" ON public.password_resets
+        FOR ALL
+        USING (public.is_service_role());
+    `);
+    console.log('✓ password_resets table verified with RLS.');
+
+    console.log('3. Installing cryptographic functions & RPC helpers...');
+    await client.query(`
       CREATE OR REPLACE FUNCTION public.get_or_create_auth_secret(p_key TEXT)
+
       RETURNS TEXT
       LANGUAGE plpgsql
       SECURITY DEFINER

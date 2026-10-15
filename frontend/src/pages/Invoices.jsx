@@ -26,6 +26,7 @@ import RecordInvoicePaymentModal from '../components/modals/RecordInvoicePayment
 import AlertModal from '../components/modals/AlertModal';
 import CustomSelect from '../components/common/CustomSelect';
 import PaginationControls from '../components/common/PaginationControls';
+import { buildWhatsAppUrl } from '../utils/whatsappNotification';
 
 export default function Invoices({ embedded = false }) {
   const {
@@ -297,11 +298,8 @@ export default function Invoices({ embedded = false }) {
         'en-IN'
       )}*\nDue Date: *${inv.dueDate || 'Immediate'}*\n\nPlease arrange payment at your earliest convenience. Thank you!`;
     const cleanPhone = sPhone.replace(/[^0-9]/g, '');
-    const phoneParam = cleanPhone.length >= 10 ? `phone=${cleanPhone}&` : '';
-    window.open(
-      `https://api.whatsapp.com/send?${phoneParam}text=${encodeURIComponent(text)}`,
-      '_blank'
-    );
+    const waUrl = buildWhatsAppUrl(cleanPhone, text);
+    window.open(waUrl, '_blank');
   };
 
   // Helper format month string

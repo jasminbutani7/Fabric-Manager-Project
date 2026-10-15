@@ -749,6 +749,30 @@ export const isLotFullyDelivered = (fabric, {
   ) || effectiveCutSets || 0;
   const targetGarmentPieces = targetSets > 0 ? targetSets * subPartsCount : totalCutPieces;
 
+  // 0. CORE RULE: If fabric lot size is equal to or surpassed by delivered sets, lot is fully delivered
+  const lotDeliveryLogsEarly = (deliveryLogs || []).filter(
+    (dl) => dl.fabricId === fabric.id || dl.fabric_id === fabric.id
+  );
+  const totalDeliveredFromLogsEarly = lotDeliveryLogsEarly.reduce(
+    (sum, dl) => sum + (parseInt(dl.totalPieces ?? dl.total_pieces ?? dl.deliveredPSC, 10) || 0),
+    0
+  );
+  const deliveredPiecesEarly = Math.max(
+    totalDeliveredFromLogsEarly,
+    parseInt(fabric.deliveredPSC || fabric.delivered_psc, 10) || 0
+  );
+  const deliveredSetsEarly = Math.max(
+    parseInt(fabric.deliveredSets || fabric.delivered_sets, 10) || 0,
+    subPartsCount > 0 ? Math.floor(deliveredPiecesEarly / subPartsCount) : deliveredPiecesEarly
+  );
+
+  if (targetSets > 0 && deliveredSetsEarly >= targetSets) {
+    return true;
+  }
+  if (targetGarmentPieces > 0 && deliveredPiecesEarly >= targetGarmentPieces) {
+    return true;
+  }
+
   // 1. Check Master Handovers
   const lotHandovers = (masterHandovers || []).filter(
     (mh) =>
@@ -766,9 +790,12 @@ export const isLotFullyDelivered = (fabric, {
   const lotAssignments = (tailorAssignments || []).filter(
     (a) => a.fabricId === fabric.id || lotCuttingIds.includes(a.cuttingId)
   );
-  const hasActiveTailorWork = lotAssignments.some(
-    (a) => !a.isArchived && a.status !== 'Completed'
-  );
+  const hasActiveTailorWork = lotAssignments.some((a) => {
+    if (a.isArchived || a.status === 'Completed') return false;
+    const assigned = parseInt(a.totalAssignedPieces ?? a.assignedPieces ?? a.assignedPSC, 10) || 0;
+    const done = parseInt(a.completedPieces ?? a.completedPSC ?? a.completed_psc, 10) || 0;
+    return assigned > 0 && done < assigned;
+  });
   if (hasActiveTailorWork) return false;
 
   // 3. Ready Sets and Floor Workload
@@ -811,20 +838,49 @@ export const isLotFullyDelivered = (fabric, {
   // 5. Delivered Sets Calculation
   let deliveredSets = 0;
   const subPartsDeliveredRaw = fabric.subPartsDelivered || fabric.sub_parts_delivered;
-  if (subPartsDeliveredRaw && typeof subPartsDeliveredRaw === 'object' && Object.keys(subPartsDeliveredRaw).length > 0) {
-    const counts = lotSubParts.map((sp) => {
-      const spKey = (sp.id || sp.name || '').toLowerCase().trim();
-      const match = Object.entries(subPartsDeliveredRaw).find(
-        ([k]) => k.toLowerCase().trim() === spKey
-      );
-      const q = parseInt(match?.[1], 10) || 0;
-      return Math.floor(q / (parseInt(sp.qty || 1, 10) || 1));
+
+  // Resolve delivered count for a subpart across readySet.deliveredSubParts, subPartsDeliveredRaw, and deliveryLogs
+  const getSubPartDeliveredCount = (sp, idx) => {
+    const spId = (sp.id || `part_${idx + 1}`).toLowerCase().trim();
+    const spName = (sp.name || '').toLowerCase().trim();
+    const normId = spId.replace(/[^a-z0-9]+/g, '');
+    const normName = spName.replace(/[^a-z0-9]+/g, '');
+
+    const checkMap = (map) => {
+      if (!map || typeof map !== 'object') return undefined;
+      if (map[spId] !== undefined) return parseInt(map[spId], 10) || 0;
+      if (map[spName] !== undefined) return parseInt(map[spName], 10) || 0;
+      for (const [k, v] of Object.entries(map)) {
+        const cleanK = k.toLowerCase().trim();
+        const normK = cleanK.replace(/[^a-z0-9]+/g, '');
+        if (cleanK === spId || cleanK === spName || (normId && normK === normId) || (normName && normK === normName)) {
+          return parseInt(v, 10) || 0;
+        }
+      }
+      return undefined;
+    };
+
+    const fromReady = checkMap(readySet.deliveredSubParts);
+    if (fromReady !== undefined) return fromReady;
+
+    const fromRaw = checkMap(subPartsDeliveredRaw);
+    if (fromRaw !== undefined) return fromRaw;
+
+    return 0;
+  };
+
+  if (lotSubParts.length > 0) {
+    const counts = lotSubParts.map((sp, idx) => {
+      const q = getSubPartDeliveredCount(sp, idx);
+      const ratio = parseInt(sp.qty || sp.ratio || sp.piecesPerSet, 10) || 1;
+      return Math.floor(q / ratio);
     });
-    if (counts.length > 0 && counts.every((c) => c >= 0)) {
+    if (counts.length > 0 && counts.some((c) => c > 0)) {
       deliveredSets = Math.min(...counts);
     }
   }
-  if (deliveredSets === 0 && deliveredPieces > 0 && lotSubParts.length <= 1) {
+
+  if (deliveredSets === 0 && deliveredPieces > 0) {
     deliveredSets = Math.floor(deliveredPieces / subPartsCount);
   }
 
@@ -844,20 +900,26 @@ export const isLotFullyDelivered = (fabric, {
   // 6. ALL PIECES AND ALL SETS MUST BE DELIVERED
   // A partial delivery (e.g. 250 out of 1000 pieces or Top only) MUST NEVER mark the lot as fully delivered!
   const allSubPartsDelivered = lotSubParts.length > 1
-    ? lotSubParts.every((sp) => {
-        const spKey = (sp.id || sp.name || '').toLowerCase().trim();
-        const match = Object.entries(subPartsDeliveredRaw || {}).find(
-          ([k]) => k.toLowerCase().trim() === spKey
-        );
-        const q = parseInt(match?.[1], 10) || 0;
+    ? lotSubParts.every((sp, idx) => {
+        const q = getSubPartDeliveredCount(sp, idx);
         const ratio = parseInt(sp.qty || sp.ratio || sp.piecesPerSet, 10) || 1;
-        const targetForPart = targetSets > 0 ? targetSets * ratio : (targetGarmentPieces > 0 ? Math.floor(targetGarmentPieces / lotSubParts.length) : (totalCutPieces > 0 ? Math.floor(totalCutPieces / lotSubParts.length) : 1));
+        const targetForPart = targetSets > 0
+          ? targetSets * ratio
+          : (targetGarmentPieces > 0
+              ? Math.floor(targetGarmentPieces / lotSubParts.length)
+              : (totalCutPieces > 0 ? Math.floor(totalCutPieces / lotSubParts.length) : 1));
         return q >= targetForPart;
       })
     : true;
 
   if (lotSubParts.length > 1 && !allSubPartsDelivered) {
-    return false;
+    // If all goods on the floor are 0 and total delivered pieces meets or exceeds target garment pieces,
+    // ensure uniform subpart delivery isn't blocked by minor label discrepancies
+    const isTotalPiecesSufficient = (targetGarmentPieces > 0 && deliveredPieces >= targetGarmentPieces) ||
+      (totalCutPieces > 0 && deliveredPieces >= totalCutPieces);
+    if (!isTotalPiecesSufficient || (readySet.totalReadyPieces || 0) > 0 || (readySet.readyProductsCount || 0) > 0) {
+      return false;
+    }
   }
 
   const isAllPiecesDelivered =
@@ -892,6 +954,7 @@ export const isLotFullyDelivered = (fabric, {
 
   return true;
 };
+
 
 /**
  * Safely extracts human-readable notes and prevents JSON strings or system metadata

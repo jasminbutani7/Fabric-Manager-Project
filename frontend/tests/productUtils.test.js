@@ -181,6 +181,85 @@ describe('Product & Cutting Utilities (productUtils)', () => {
       expect(isLotFullyDelivered({ ...mockFabric, isDelivered: true })).toBe(true);
       expect(isLotFullyDelivered({ ...mockFabric, isArchived: true })).toBe(true);
     });
+
+    it('should return true for 2-part lot (TOP & PENT) when delivered records use part names while productStructure uses part IDs', () => {
+      const twoPartFabric = {
+        id: 'fab_two_part',
+        fabricType: 'Test plain (Black)',
+        lotNo: '1',
+        status: 'In Production',
+        isDelivered: false,
+        expectedSets: 750,
+        targetSets: 750,
+        productStructure: {
+          productName: 'Set',
+          subParts: [
+            { id: 'part_1', name: 'TOP', qty: 1 },
+            { id: 'part_2', name: 'PENT', qty: 1 },
+          ],
+        },
+        deliveredPSC: 1500,
+        subPartsDelivered: { top: 750, pent: 750 },
+      };
+
+      const cuttings = [
+        {
+          id: 'cut_tp',
+          fabricId: 'fab_two_part',
+          setsCount: 750,
+          totalPieces: 1500,
+          cutPieces: { top: 750, pent: 750 },
+        },
+      ];
+
+      const tailorAssignments = [
+        {
+          id: 'ta_1',
+          fabricId: 'fab_two_part',
+          subPart: 'TOP',
+          assignedPieces: 750,
+          completedPieces: 750,
+          status: 'In Progress', // Even if status string is not yet set to Completed
+        },
+        {
+          id: 'ta_2',
+          fabricId: 'fab_two_part',
+          subPart: 'PENT',
+          assignedPieces: 750,
+          completedPieces: 750,
+          status: 'In Progress',
+        },
+      ];
+
+      const masterHandovers = [
+        {
+          id: 'ho_tp',
+          fabricId: 'fab_two_part',
+          status: 'Verified',
+          piecesCount: 1500,
+          subParts: { top: 750, pent: 750 },
+        },
+      ];
+
+      const deliveryLogs = [
+        {
+          id: 'dl_tp',
+          fabricId: 'fab_two_part',
+          totalPieces: 1500,
+          subParts: { top: 750, pent: 750 },
+        },
+      ];
+
+      const isDelivered = isLotFullyDelivered(twoPartFabric, {
+        cuttings,
+        tailorAssignments,
+        masterHandovers,
+        deliveryLogs,
+      });
+
+      expect(isDelivered).toBe(true);
+    });
   });
 });
+
 

@@ -106,8 +106,9 @@ export function AuthProvider({ children }) {
       if (!isSupabaseConfigured || !supabase || !currentUser?.id) return;
       try {
         if (currentUser.role === 'Admin') {
-          setTenantAuthHeader(currentUser.id);
+          setTenantAuthHeader(currentUser.id, currentUser.token || null);
           let profile = null;
+
           try {
             const { data: rpcData, error: rpcErr } = await supabase.rpc('get_user_profile', {
               p_user_id: currentUser.id,
@@ -192,8 +193,10 @@ export function AuthProvider({ children }) {
     currentUser?.email,
     currentUser?.companyName,
     currentUser?.company_name,
+    currentUser?.token,
     logout,
   ]);
+
 
   // Sync active user session strictly to sessionStorage (browser close will expire session)
   useEffect(() => {
@@ -290,7 +293,8 @@ export function AuthProvider({ children }) {
               }
             }
 
-            setTenantAuthHeader(found.id);
+            const token = authResult.token || null;
+            setTenantAuthHeader(found.id, token);
             return {
               id: found.id,
               name: found.name,
@@ -299,6 +303,7 @@ export function AuthProvider({ children }) {
               companyName: found.companyName || found.company_name,
               role: found.role || 'Admin',
               avatar: found.avatar,
+              token,
             };
           } else {
             throw new Error(authResult?.error || 'Incorrect Admin password. Please verify and try again.');
@@ -334,7 +339,7 @@ export function AuthProvider({ children }) {
           const found = data.worker;
           const token = data.token || found.token || null;
           setWorkerAuthHeader(found.id, token);
-          if (found.user_id) setTenantAuthHeader(found.user_id);
+          if (found.user_id) setTenantAuthHeader(found.user_id, token);
           return {
             id: found.id,
             name: found.name,
@@ -366,13 +371,14 @@ export function AuthProvider({ children }) {
           const found = data.worker;
           const token = data.token || found.token || null;
           setWorkerAuthHeader(found.id, token);
-          if (found.user_id) setTenantAuthHeader(found.user_id);
+          if (found.user_id) setTenantAuthHeader(found.user_id, token);
           return {
             id: found.id,
             name: found.name,
             phone: sanitizeMobileNumber(found.phone) || found.phone,
             companyName: 'Fabric Manager',
             role: 'Tailor',
+
             user_id: found.user_id,
             adminUserId: found.user_id,
             token,

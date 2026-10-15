@@ -28,7 +28,7 @@ function getEnvConfig() {
 }
 
 /**
- * Creates a nodemailer transporter using Gmail SMTP with App Password
+ * Creates a nodemailer transporter supporting Custom Domain SMTP (Zoho, Google Workspace, SES, etc.) or Gmail SMTP
  */
 function createTransporter() {
   const env = getEnvConfig();
@@ -39,16 +39,29 @@ function createTransporter() {
     return null;
   }
 
-  return nodemailer.createTransport({
-    service: 'gmail',
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // SSL
+  const host = env.SMTP_HOST || (user.includes('@gmail.com') ? 'smtp.gmail.com' : undefined);
+  const port = parseInt(env.SMTP_PORT || '465', 10);
+  const secure = env.SMTP_SECURE !== undefined ? env.SMTP_SECURE === 'true' : port === 465;
+
+  const config = {
     auth: {
       user,
       pass,
     },
-  });
+  };
+
+  if (host) {
+    config.host = host;
+    config.port = port;
+    config.secure = secure;
+  } else {
+    config.service = 'gmail';
+    config.host = 'smtp.gmail.com';
+    config.port = 465;
+    config.secure = true;
+  }
+
+  return nodemailer.createTransport(config);
 }
 
 /**
@@ -195,10 +208,11 @@ async function sendPasswordResetOtpEmail(toEmail, otp, adminName = 'Admin') {
       throw new Error('Could not initialize Gmail SMTP transporter');
     }
 
+    const fromAddress = env.SMTP_FROM || env.FROM_EMAIL || `"${fromName}" <${smtpUser}>`;
     const htmlContent = generateOtpHtmlTemplate(otp, adminName);
 
     const info = await transporter.sendMail({
-      from: `"${fromName}" <${smtpUser}>`,
+      from: fromAddress,
       to: toEmail,
       subject: `🔐 Fabric Manager - Your Password Reset OTP is ${otp}`,
       html: htmlContent,

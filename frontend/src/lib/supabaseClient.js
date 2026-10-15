@@ -40,14 +40,20 @@ export const setWorkerAuthHeader = (workerId, workerToken = null) => {
   }
 };
 
-export const setTenantAuthHeader = (tenantId) => {
+export const setTenantAuthHeader = (tenantId, tenantToken = null) => {
   if (!supabase || !supabase.rest) return;
+  if (tenantToken) {
+    supabase.rest.headers['Authorization'] = `Bearer ${String(tenantToken).trim()}`;
+  } else if (!tenantId) {
+    delete supabase.rest.headers['Authorization'];
+  }
   if (tenantId) {
     supabase.rest.headers['x-tenant-id'] = String(tenantId).trim();
   } else {
     delete supabase.rest.headers['x-tenant-id'];
   }
 };
+
 
 // Initialize unload tracking
 if (typeof window !== 'undefined') {
@@ -65,14 +71,15 @@ if (typeof window !== 'undefined' && supabase) {
         const parsed = JSON.parse(raw);
         if (parsed?.id) {
           if (parsed.role === 'Admin') {
-            setTenantAuthHeader(parsed.id);
+            setTenantAuthHeader(parsed.id, parsed.token || null);
           } else if (parsed.role === 'Master' || parsed.role === 'Tailor') {
             setWorkerAuthHeader(parsed.id, parsed.token || null);
             if (parsed.user_id || parsed.adminUserId) {
-              setTenantAuthHeader(parsed.user_id || parsed.adminUserId);
+              setTenantAuthHeader(parsed.user_id || parsed.adminUserId, parsed.token || null);
             }
           }
         }
+
       }
     }
   } catch {}

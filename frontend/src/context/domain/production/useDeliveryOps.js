@@ -337,7 +337,12 @@ export function useDeliveryOps(params) {
             const fabricAssignments = tailorAssignments.filter(
               (a) => a.fabricId === f.id || fabricCuttings.some((c) => c.id === a.cuttingId)
             );
-            const hasActiveTailors = fabricAssignments.some((a) => !a.isArchived && a.status !== 'Completed');
+            const hasActiveTailors = fabricAssignments.some((a) => {
+              if (a.isArchived || a.status === 'Completed') return false;
+              const assigned = parseInt(a.totalAssignedPieces ?? a.assignedPieces ?? a.assignedPSC, 10) || 0;
+              const done = parseInt(a.completedPieces ?? a.completedPSC ?? a.completed_psc, 10) || 0;
+              return assigned > 0 && done < assigned;
+            });
 
             const effectiveCutSets = totalCutSets > 0
               ? totalCutSets
@@ -353,9 +358,26 @@ export function useDeliveryOps(params) {
             }
 
             const allSubPartsDelivered = lotSubParts.length > 1
-              ? lotSubParts.every((sp) => {
-                  const spKey = (sp.id || sp.name || '').toLowerCase().trim();
-                  const delPartCount = updatedSubs[spKey] || 0;
+              ? lotSubParts.every((sp, idx) => {
+                  const spId = (sp.id || `part_${idx + 1}`).toLowerCase().trim();
+                  const spName = (sp.name || '').toLowerCase().trim();
+                  const normId = spId.replace(/[^a-z0-9]+/g, '');
+                  const normName = spName.replace(/[^a-z0-9]+/g, '');
+
+                  let delPartCount = 0;
+                  if (updatedSubs[spId] !== undefined) delPartCount = updatedSubs[spId];
+                  else if (updatedSubs[spName] !== undefined) delPartCount = updatedSubs[spName];
+                  else {
+                    for (const [k, v] of Object.entries(updatedSubs)) {
+                      const cleanK = k.toLowerCase().trim();
+                      const normK = cleanK.replace(/[^a-z0-9]+/g, '');
+                      if (cleanK === spId || cleanK === spName || (normId && normK === normId) || (normName && normK === normName)) {
+                        delPartCount = parseInt(v, 10) || 0;
+                        break;
+                      }
+                    }
+                  }
+
                   const ratio = parseInt(sp.qty || sp.ratio || sp.piecesPerSet, 10) || 1;
                   const targetForPart = targetSets > 0 ? targetSets * ratio : (totalCutPieces > 0 ? Math.floor(totalCutPieces / lotSubParts.length) : 1);
                   return delPartCount >= targetForPart;
@@ -365,7 +387,7 @@ export function useDeliveryOps(params) {
             // Lot is ONLY fully delivered if ALL pieces/sets and all subparts of the lot are delivered
             const isFabricFullyDelivered =
               !hasActiveTailors &&
-              allSubPartsDelivered &&
+              (allSubPartsDelivered || totalDeliveredForFabric >= targetGarmentPieces || totalDeliveredForFabric >= totalCutPieces) &&
               totalDeliveredForFabric > 0 &&
               (
                 (targetGarmentPieces > 0 && totalDeliveredForFabric >= targetGarmentPieces) ||
@@ -376,6 +398,7 @@ export function useDeliveryOps(params) {
                   ? (effectiveCutSets >= targetSets || totalDeliveredForFabric >= (targetSets * subPartsCount))
                   : true
               );
+
 
             if (isFabricFullyDelivered) {
               setCuttings((prev) =>

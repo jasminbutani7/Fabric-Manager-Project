@@ -185,18 +185,67 @@ export const buildFabricLotWhatsAppMessage = (f, {
   return msg;
 };
 
+/**
+ * Safely format phone number for WhatsApp wa.me / api.whatsapp.com URLs.
+ * Handles:
+ * - 10-digit Indian numbers (9876543210 -> 919876543210)
+ * - 12-digit Indian numbers starting with 91 (919876543210 -> 919876543210, prevents double 91)
+ * - 11-digit numbers with leading 0 (09876543210 -> 919876543210)
+ * - International numbers (+14155552671 -> 14155552671)
+ * - Empty / null / invalid phone numbers -> ''
+ */
+export const formatWhatsAppPhone = (phone, defaultCountryCode = '91') => {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (!digits) return '';
+
+  // If 10 digits (e.g. Indian standard mobile), add country code
+  if (digits.length === 10) {
+    return `${defaultCountryCode}${digits}`;
+  }
+
+  // If 11 digits starting with 0, drop leading 0 and prepend country code
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return `${defaultCountryCode}${digits.slice(1)}`;
+  }
+
+  // If 12 digits starting with 91, keep as-is (do NOT prepend 91 again)
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return digits;
+  }
+
+  // If standard international format with country code (> 10 digits), keep as-is
+  if (digits.length > 10) {
+    return digits;
+  }
+
+  return digits;
+};
+
+/**
+ * Builds a reliable WhatsApp deep-link URL
+ */
+export const buildWhatsAppUrl = (phone, text = '', defaultCountryCode = '91') => {
+  const formattedPhone = formatWhatsAppPhone(phone, defaultCountryCode);
+  const encodedText = text ? encodeURIComponent(text) : '';
+
+  if (formattedPhone) {
+    return encodedText
+      ? `https://wa.me/${formattedPhone}?text=${encodedText}`
+      : `https://wa.me/${formattedPhone}`;
+  }
+
+  return encodedText
+    ? `https://api.whatsapp.com/send?text=${encodedText}`
+    : 'https://wa.me/';
+};
+
 export const openFabricLotWhatsAppShare = (f, options, onNotified) => {
   const msg = buildFabricLotWhatsAppMessage(f, options);
   if (!msg) return;
 
   const adminPhone = options.currentUserPhone || '';
-  const cleanPhone = adminPhone.replace(/\D/g, '');
-  let waUrl = '';
-  if (cleanPhone.length >= 10) {
-    waUrl = `https://wa.me/91${cleanPhone.slice(-10)}?text=${encodeURIComponent(msg)}`;
-  } else {
-    waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
-  }
+  const waUrl = buildWhatsAppUrl(adminPhone, msg);
 
   window.open(waUrl, '_blank');
   if (onNotified) {

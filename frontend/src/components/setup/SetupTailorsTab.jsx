@@ -18,6 +18,7 @@ import {
   Edit2,
 } from 'lucide-react';
 import { useFactorySetup } from '../../context/domain';
+import { buildWhatsAppUrl } from '../../utils/whatsappNotification';
 
 export default function SetupTailorsTab({
   onAddTailor,
@@ -479,9 +480,10 @@ export default function SetupTailorsTab({
                           </a>
                           {t.phone && (
                             <a
-                              href={`https://wa.me/91${t.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                              href={buildWhatsAppUrl(
+                                t.phone,
                                 `Namaste ${t.name}, here is your Fabric Manager Tailor Portal link to view your assigned machine, stitching pieces, and earnings: ${typeof window !== 'undefined' ? window.location.origin : ''}/portal/tailor/${t.id}`
-                              )}`}
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-colors"

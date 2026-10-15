@@ -1,45 +1,75 @@
-/**
- * Fabric Manager Backend Authentication & Tenant Isolation Middleware
- */
+const { verifyJwt } = require('../config/security.cjs');
 
 /**
- * Middleware ensuring incoming REST requests belong to an authenticated tenant.
- * Defends against IDOR (Insecure Direct Object Reference) by ensuring queries/body user_id
- * strictly matches the authenticated x-tenant-id header.
+ * Fabric Manager Backend Authentication & Tenant Isolation Middleware
+ * Requires verified cryptographic JWT tokens (Bearer or x-worker-token).
+ * Prevents tenant impersonation and header spoofing.
  */
 function authenticateTenant(req, res, next) {
   const authHeader = req.headers.authorization;
+  const workerTokenHeader = req.headers['x-worker-token'];
   const tenantIdHeader = req.headers['x-tenant-id'];
-  const workerToken = req.headers['x-worker-token'];
 
-  let resolvedTenantId = null;
-
-  if (tenantIdHeader && typeof tenantIdHeader === 'string' && tenantIdHeader.trim()) {
-    resolvedTenantId = tenantIdHeader.trim();
-  } else if (authHeader && authHeader.startsWith('Bearer ')) {
-    resolvedTenantId = authHeader.substring(7).trim();
+  let tokenToVerify = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    tokenToVerify = authHeader.substring(7).trim();
+  } else if (workerTokenHeader && typeof workerTokenHeader === 'string' && workerTokenHeader.trim()) {
+    tokenToVerify = workerTokenHeader.trim();
   }
 
-  if (!resolvedTenantId && !workerToken) {
-    return res.status(401).json({
-      success: false,
-      error: 'Unauthorized: Active tenant session (x-tenant-id or Authorization header) is required',
-    });
+  let verifiedPayload = null;
+  if (tokenToVerify) {
+    verifiedPayload = verifyJwt(tokenToVerify);
   }
 
-  // Cross-verify with body/query parameter if present to prevent tenant impersonation
-  const requestedUserId = req.query.user_id || req.body?.user_id;
-  if (requestedUserId && resolvedTenantId && requestedUserId !== resolvedTenantId) {
-    return res.status(403).json({
-      success: false,
-      error: 'Forbidden: Cannot access or mutate resources outside authenticated tenant scope',
-    });
+  // If a valid cryptographic token is present
+  if (verifiedPayload) {
+    const verifiedTenantId = verifiedPayload.tenant_id || verifiedPayload.user_id || verifiedPayload.sub;
+
+    // Cross-verify with x-tenant-id header if supplied by client to prevent spoofing
+    if (tenantIdHeader && typeof tenantIdHeader === 'string' && tenantIdHeader.trim() !== verifiedTenantId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Request header x-tenant-id does not match verified token tenant scope',
+      });
+    }
+
+    // Cross-verify with body/query parameter if present to prevent IDOR
+    const requestedUserId = req.query.user_id || req.body?.user_id;
+    if (requestedUserId && requestedUserId !== verifiedTenantId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Cannot access or mutate resources outside authenticated tenant scope',
+      });
+    }
+
+    req.tenantId = verifiedTenantId;
+    req.user = verifiedPayload;
+    return next();
   }
 
-  req.tenantId = resolvedTenantId;
-  next();
+  // In test or local dev mode, allow fallback only if explicitly running test/dev
+  const isDevOrTest = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
+  if (isDevOrTest && tenantIdHeader && typeof tenantIdHeader === 'string' && tenantIdHeader.trim()) {
+    const fallbackTenantId = tenantIdHeader.trim();
+    const requestedUserId = req.query.user_id || req.body?.user_id;
+    if (requestedUserId && requestedUserId !== fallbackTenantId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Cannot access or mutate resources outside authenticated tenant scope',
+      });
+    }
+    req.tenantId = fallbackTenantId;
+    return next();
+  }
+
+  return res.status(401).json({
+    success: false,
+    error: 'Unauthorized: Valid cryptographic authentication token (Bearer or x-worker-token) is required',
+  });
 }
 
 module.exports = {
   authenticateTenant,
 };
+

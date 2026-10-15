@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sendPasswordResetOtpEmail, getEnvConfig } from '../../backend/services/emailService.cjs';
-import { hashPasswordPbkdf2, verifyPbkdf2Password } from '../../backend/config/security.cjs';
+import { hashPasswordPbkdf2, verifyPbkdf2Password, generateSecureOtp } from '../../backend/config/security.cjs';
+import { verifyOtp, resetPassword } from '../../backend/controllers/authController.cjs';
 
 describe('Backend Email Service & Password Reset OTP System', () => {
   it('should load environment config safely', () => {
@@ -24,13 +25,16 @@ describe('Backend Email Service & Password Reset OTP System', () => {
   }, 15000);
 
   it('should generate valid 6-digit OTP codes and PBKDF2 password hashes', () => {
-    const rawOtp = String(Math.floor(100000 + Math.random() * 900000));
+    const rawOtp = generateSecureOtp();
     expect(rawOtp).toHaveLength(6);
     expect(/^\d{6}$/.test(rawOtp)).toBe(true);
+    const num = parseInt(rawOtp, 10);
+    expect(num).toBeGreaterThanOrEqual(100000);
+    expect(num).toBeLessThan(1000000);
 
     const newPass = 'StrongFabricPassword2026!';
     const hashed = hashPasswordPbkdf2(newPass);
-    expect(hashed).toMatch(/^pbkdf2\$\d+\$[a-f0-9]{32}\$[a-f0-9]{64}$/);
+    expect(hashed).toMatch(/^pbkdf2[:$]\d+[:$][a-f0-9]{32}[:$][a-f0-9]{64}$/);
 
     const matches = verifyPbkdf2Password(newPass, hashed);
     expect(matches).toBe(true);
@@ -38,4 +42,41 @@ describe('Backend Email Service & Password Reset OTP System', () => {
     const rejects = verifyPbkdf2Password('WrongPass123', hashed);
     expect(rejects).toBe(false);
   });
+
+  it('should validate OTP input constraints in verifyOtp controller', async () => {
+    let statusCode = null;
+    let jsonBody = null;
+    const req = { body: { email: 'invalid_email', otp: '123' } };
+    const res = {
+      status: (c) => {
+        statusCode = c;
+        return {
+          json: (b) => { jsonBody = b; },
+        };
+      },
+    };
+
+    await verifyOtp(req, res);
+    expect(statusCode).toBe(400);
+    expect(jsonBody.success).toBe(false);
+  });
+
+  it('should validate password length constraints in resetPassword controller', async () => {
+    let statusCode = null;
+    let jsonBody = null;
+    const req = { body: { email: 'admin@fabric.com', newPassword: '123', otp: '123456' } };
+    const res = {
+      status: (c) => {
+        statusCode = c;
+        return {
+          json: (b) => { jsonBody = b; },
+        };
+      },
+    };
+
+    await resetPassword(req, res);
+    expect(statusCode).toBe(400);
+    expect(jsonBody.success).toBe(false);
+  });
 });
+

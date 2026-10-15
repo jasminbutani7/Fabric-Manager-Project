@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useFactory, useFabric } from '../../context/useManagement';
 import AlertModal from './AlertModal';
+import { buildWhatsAppUrl } from '../../utils/whatsappNotification';
 
 export default function AssignFabricMasterModal({
   isOpen,
@@ -88,13 +89,10 @@ export default function AssignFabricMasterModal({
   // Pre-formatted WhatsApp notification link
   const generateWhatsAppLink = () => {
     if (!selectedMaster) return null;
-    const phoneDigits = (selectedMaster.phone || '').replace(/\D/g, '');
     const portalUrl = `${window.location.origin}/portal/master/${selectedMaster.id}`;
     const message = `Namaste ${selectedMaster.name}, a new fabric lot "${fabric.fabricType || 'Fabric Lot'} (${fabric.color || 'Standard'})" (${fabric.plainMeters ? fabric.plainMeters + 'm Plain ' : ''}${fabric.printPieces ? fabric.printPieces + ' Sets Target' : ''}) has been assigned to you for cutting (Product: ${fabric.productName || 'Garment'}). Target Due Date: ${formData.dueDate || 'ASAP'}. View your assignments: ${portalUrl}`;
 
-    return phoneDigits
-      ? `https://wa.me/91${phoneDigits}?text=${encodeURIComponent(message)}`
-      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    return buildWhatsAppUrl(selectedMaster.phone, message);
   };
 
   const isDesignConfigured = Boolean(

@@ -20,6 +20,7 @@ import { useFinance } from '../../context/useManagement';
 import RecordInvoicePaymentModal from './RecordInvoicePaymentModal';
 import ThermalReceipt from '../common/ThermalReceipt';
 import { downloadA4Pdf, downloadThermalPdf, triggerCleanPrint } from '../../utils/pdfExport';
+import { buildWhatsAppUrl } from '../../utils/whatsappNotification';
 
 const formatCurrency = (val) => {
   if (val === undefined || val === null || val === '') return '0';
@@ -102,7 +103,7 @@ export default function InvoiceDetailsModal({
       pendingAmount
     )}*\nDue Date: ${effectiveInvoice.dueDate || 'Immediate'}\n\nPlease settle the balance via UPI or bank transfer at your earliest convenience.\n\nThank you!`;
     const cleanPhone = supplierPhone.replace(/\D/g, '');
-    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    const url = buildWhatsAppUrl(cleanPhone, text);
     window.open(url, '_blank');
   };
 

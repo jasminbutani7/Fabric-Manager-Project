@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
 import { validateEmail, sanitizeMobileNumber, validateMobileNumber } from '../../utils/formValidation';
+import { buildWhatsAppUrl } from '../../utils/whatsappNotification';
 
 export default function ForgotPasswordModal({
   isOpen,
@@ -50,7 +51,6 @@ export default function ForgotPasswordModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [deliveryInfo, setDeliveryInfo] = useState(null);
 
   // Reset state when modal opens or initialRole changes
   useEffect(() => {
@@ -68,7 +68,6 @@ export default function ForgotPasswordModal({
         setError('');
         setSuccessMsg('');
         setResendCountdown(0);
-        setDeliveryInfo(null);
       }, 0);
       return () => clearTimeout(timer);
     }
@@ -179,8 +178,7 @@ export default function ForgotPasswordModal({
     if (!workerData || !workerData.adminPhone) return;
     const cleanAdminPhone = workerData.adminPhone.replace(/\D/g, '');
     const prefilledText = `Hello ${workerData.adminName || 'Admin'},\n\nI am ${workerData.workerName || ''} (${role}) registered at ${workerData.companyName || 'your factory'}.\n\nI have forgotten my login PIN/password for the Fabric Manager portal. Please reset my PIN or share my login credentials.\n\nThank you!`;
-    const encodedText = encodeURIComponent(prefilledText);
-    const whatsappUrl = `https://wa.me/91${cleanAdminPhone}?text=${encodedText}`;
+    const whatsappUrl = buildWhatsAppUrl(cleanAdminPhone, prefilledText);
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 

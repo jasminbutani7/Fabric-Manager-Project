@@ -15,7 +15,8 @@
     "server:dev": "node backend/server.cjs",
     "server:start": "node backend/server.cjs",
     "db:check": "node scripts/db-check.cjs",
-    "db:migrate": "node scripts/db-migrate.cjs"
+    "db:migrate": "node scripts/db-migrate.cjs",
+    "db:backup": "node scripts/db-backup.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

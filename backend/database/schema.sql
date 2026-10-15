@@ -403,3 +403,20 @@ CREATE TABLE IF NOT EXISTS public.invoice_expenses (
     updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_inv_exp_user_id ON public.invoice_expenses(user_id);
+
+-- 17. PASSWORD RESETS (Time-To-Live Email OTP Verification & Account Recovery)
+CREATE TABLE IF NOT EXISTS public.password_resets (
+    id               TEXT PRIMARY KEY,
+    email            TEXT NOT NULL,
+    otp              TEXT NOT NULL,
+    user_id          TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+    user_name        TEXT,
+    attempts         INTEGER DEFAULT 0,
+    verified         BOOLEAN DEFAULT FALSE,
+    verified_at      TIMESTAMPTZ,
+    expires_at       TIMESTAMPTZ NOT NULL,
+    created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_password_resets_email ON public.password_resets(email);
+CREATE INDEX IF NOT EXISTS idx_password_resets_expires_at ON public.password_resets(expires_at);
+

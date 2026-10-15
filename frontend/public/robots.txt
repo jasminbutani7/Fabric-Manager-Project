@@ -1,0 +1,9 @@
+# robots.txt for Fabric Manager ERP
+User-agent: *
+Allow: /
+Allow: /signin
+Allow: /signup
+Disallow: /api/
+Disallow: /portal/
+
+Sitemap: https://fabricmanager.app/sitemap.xml

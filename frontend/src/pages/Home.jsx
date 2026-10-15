@@ -32,7 +32,7 @@ import {
 export default function Home() {
   const { modalActions, modalState } = useFabricModals();
   const { machines, tailors, masters, suppliers = [], deleteSupplier } = useFactorySetup();
-  const { fabrics = [], cuttings = [] } = useFabrics();
+  const { fabrics = [], cuttings = [], updateFabric } = useFabrics();
   const {
     tailorAssignments = [],
     threadCuttingAssignments = [],
@@ -99,7 +99,47 @@ export default function Home() {
   const isLotFullyDelivered = React.useCallback(
     (f) => {
       if (!f) return false;
-      if (f.status === 'Delivered' || f.isDelivered) return true;
+      if (f.status === 'Delivered' || f.isDelivered || f.isArchived) return true;
+
+      // CORE RULE: If fabric lot size is equal to deliver sets, remove fabric lot from Running Lots
+      const lotSizeSets = parseInt(
+        f.targetSets ?? f.printPieces ?? f.expectedSets ?? f.expected_sets ?? f.totalSets ?? 0,
+        10
+      );
+      const lotLogs = (deliveryLogs || []).filter(
+        (dl) => dl.fabricId === f.id || dl.fabric_id === f.id
+      );
+      const logPieces = lotLogs.reduce(
+        (sum, dl) => sum + (parseInt(dl.totalPieces ?? dl.total_pieces ?? dl.deliveredPSC, 10) || 0),
+        0
+      );
+      const totalDelivPieces = Math.max(
+        logPieces,
+        parseInt(f.deliveredPSC ?? f.delivered_psc ?? 0, 10)
+      );
+
+      let struct = f.productStructure || f.product_structure;
+      if (typeof struct === 'string') {
+        try { struct = JSON.parse(struct); } catch { struct = null; }
+      }
+      const partsCount = Array.isArray(struct?.subParts) && struct.subParts.length > 0
+        ? struct.subParts.length
+        : Array.isArray(struct?.parts) && struct.parts.length > 0
+          ? struct.parts.length
+          : 1;
+
+      const delivSets = Math.max(
+        parseInt(f.deliveredSets ?? f.delivered_sets ?? 0, 10),
+        partsCount > 0 ? Math.floor(totalDelivPieces / partsCount) : totalDelivPieces
+      );
+
+      if (lotSizeSets > 0 && delivSets >= lotSizeSets) {
+        return true;
+      }
+      if (lotSizeSets > 0 && totalDelivPieces >= lotSizeSets * partsCount) {
+        return true;
+      }
+
       return checkLotFullyDelivered(f, {
         cuttings,
         tailorAssignments,
@@ -111,6 +151,22 @@ export default function Home() {
     },
     [cuttings, tailorAssignments, masterHandovers, threadCuttingAssignments, invoices, deliveryLogs]
   );
+
+  // Auto-heal: Ensure any lot whose finished goods are 100% delivered has status synced in database
+  const healedLotIdsRef = React.useRef(new Set());
+  React.useEffect(() => {
+    (fabrics || []).forEach((f) => {
+      if (!f || f.isArchived || f.status === 'Delivered' || f.isDelivered || healedLotIdsRef.current.has(f.id)) {
+        return;
+      }
+      if (isLotFullyDelivered(f)) {
+        healedLotIdsRef.current.add(f.id);
+        if (typeof updateFabric === 'function') {
+          updateFabric(f.id, { status: 'Delivered', isDelivered: true });
+        }
+      }
+    });
+  }, [fabrics, isLotFullyDelivered, updateFabric]);
 
   // Running Lot calculations for Admin Floor Overview - strictly active & deduplicated by lot ID
   const rawRunningLots = useMemo(() => {

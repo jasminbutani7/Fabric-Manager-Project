@@ -1,6 +1,7 @@
 import React from 'react';
 import { Scissors, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import CustomSelect from '../common/CustomSelect';
+import { buildWhatsAppUrl } from '../../utils/whatsappNotification';
 
 export default function TailorLedgerSection({
   tailorPayroll = [],
@@ -134,16 +135,14 @@ export default function TailorLedgerSection({
 
                       {tailor.tailorPhone && (
                         <a
-                          href={`https://api.whatsapp.com/send?phone=${tailor.tailorPhone.replace(
-                            /[^0-9]/g,
-                            ''
-                          )}&text=${encodeURIComponent(
+                          href={buildWhatsAppUrl(
+                            tailor.tailorPhone,
                             `Hello ${tailor.tailorName},\n\nYour stitching earnings statement for ${formatMonthName(
                               selectedMonth
                             )}:\nTotal Pieces Completed: ${totalPieces}\nTotal Stitching Payment: ₹${earnings.toLocaleString(
                               'en-IN'
                             )}.\n\nThank you, ${currentUser?.companyName || 'Management'}`
-                          )}`}
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-colors flex items-center justify-center cursor-pointer shrink-0"
@@ -228,16 +227,14 @@ export default function TailorLedgerSection({
 
                       {tailor.tailorPhone && (
                         <a
-                          href={`https://api.whatsapp.com/send?phone=${tailor.tailorPhone.replace(
-                            /[^0-9]/g,
-                            ''
-                          )}&text=${encodeURIComponent(
+                          href={buildWhatsAppUrl(
+                            tailor.tailorPhone,
                             `Hello ${tailor.tailorName},\n\nYour stitching earnings statement for ${formatMonthName(
                               selectedMonth
                             )}:\nTotal Pieces Completed: ${totalPieces}\nTotal Stitching Payment: ₹${earnings.toLocaleString(
                               'en-IN'
                             )}.\n\nThank you, ${currentUser?.companyName || 'Management'}`
-                          )}`}
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"

@@ -1,13 +1,13 @@
 -- =============================================================================
 -- FABRIC MANAGER - SAMPLE DEMO SEED DATA
--- Ideal for College Evaluation, Viva Demonstrations, and Automated Testing
+-- Production Demo Setup and Initial Environment Verification
 -- =============================================================================
 
 -- 1. Demo Admin User (Mobile: 9876543210, Pass: admin123)
 INSERT INTO public.users (id, name, phone, email, company_name, role, password)
 VALUES (
-    'user_college_demo_admin',
-    'Jasmin Butani',
+    'user_demo_admin',
+    'Admin User',
     '9876543210',
     'admin@fabricmanager.local',
     'Apex Garments Pvt Ltd',
@@ -18,8 +18,8 @@ VALUES (
 -- 2. Demo Master (Mobile: 9876543211, PIN: 1234)
 INSERT INTO public.masters (id, user_id, role, name, phone, specialization, experience, status, password)
 VALUES (
-    'mst_college_demo_01',
-    'user_college_demo_admin',
+    'mst_demo_01',
+    'user_demo_admin',
     'Master',
     'Ramesh Master',
     '9876543211',
@@ -32,8 +32,8 @@ VALUES (
 -- 3. Demo Machine
 INSERT INTO public.machines (id, user_id, code, name, type, brand, line, status)
 VALUES (
-    'mch_college_demo_01',
-    'user_college_demo_admin',
+    'mch_demo_01',
+    'user_demo_admin',
     'SN-101',
     'Single Needle High-Speed Lockstitch',
     'Single Needle',
@@ -45,12 +45,12 @@ VALUES (
 -- 4. Demo Tailor (Mobile: 9876543212, PIN: 1234)
 INSERT INTO public.tailors (id, user_id, role, name, phone, assigned_machine_id, specialty, status, password)
 VALUES (
-    'tlr_college_demo_01',
-    'user_college_demo_admin',
+    'tlr_demo_01',
+    'user_demo_admin',
     'Tailor',
     'Suresh Tailor',
     '9876543212',
-    'mch_college_demo_01',
+    'mch_demo_01',
     'Full Stitching & Collar Assembly',
     'Active',
     '1234'
@@ -59,8 +59,8 @@ VALUES (
 -- 5. Demo Supplier
 INSERT INTO public.suppliers (id, user_id, name, category, contact_person, phone, gst_number, address)
 VALUES (
-    'sup_college_demo_01',
-    'user_college_demo_admin',
+    'sup_demo_01',
+    'user_demo_admin',
     'Surat Textile Mills',
     'Fabric Manufacturer',
     'Rajesh Patel',
@@ -72,10 +72,10 @@ VALUES (
 -- 6. Demo Fabric Lot
 INSERT INTO public.fabrics (id, user_id, lot_no, supplier_id, supplier_name, plain_meters, target_sets, price_per_set, total_amount, product_name, color, fabric_type, status)
 VALUES (
-    'fab_college_demo_01',
-    'user_college_demo_admin',
+    'fab_demo_01',
+    'user_demo_admin',
     101,
-    'sup_college_demo_01',
+    'sup_demo_01',
     'Surat Textile Mills',
     500.00,
     250,

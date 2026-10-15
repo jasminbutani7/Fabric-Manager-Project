@@ -1,5 +1,13 @@
 const { query, pool, supabase } = require('../config/db.cjs');
-const { verifyPbkdf2Password, hashPasswordPbkdf2, verifyWorkerPin: verifyWorkerPinHelper, sanitizeMobileNumber } = require('../config/security.cjs');
+const {
+  verifyPbkdf2Password,
+  hashPasswordPbkdf2,
+  verifyWorkerPin: verifyWorkerPinHelper,
+  sanitizeMobileNumber,
+  generateSecureOtp,
+  generateTenantToken,
+  generateWorkerToken,
+} = require('../config/security.cjs');
 
 /**
  * Admin Login Endpoint
@@ -41,16 +49,21 @@ async function loginAdmin(req, res) {
     // Never return password hash
     delete user.password;
 
+    // Issue cryptographically signed tenant session JWT
+    const token = generateTenantToken(user);
+
     return res.json({
       success: true,
       message: 'Login successful',
       user,
+      token,
     });
   } catch (err) {
     console.error('Error in loginAdmin:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 }
+
 
 /**
  * Admin Registration Endpoint
@@ -130,11 +143,13 @@ async function verifyWorkerPin(req, res) {
     }
 
     delete worker.password;
+    const token = generateWorkerToken(worker);
 
     return res.json({
       success: true,
       message: 'Worker verification successful',
       worker,
+      token,
     });
   } catch (err) {
     console.error('Error in verifyWorkerPin:', err);
@@ -142,13 +157,185 @@ async function verifyWorkerPin(req, res) {
   }
 }
 
-// In-memory OTP storage: email -> { otp, createdAt, expiresAt, attempts, verified, verifiedAt, userId }
-const otpStore = new Map();
+// Database-backed OTP Storage with in-memory fallback mirror
+const memoryOtpStore = new Map();
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const OTP_COOLDOWN_MS = 60 * 1000; // 60 seconds
 const MAX_OTP_ATTEMPTS = 5;
 
 const { sendPasswordResetOtpEmail } = require('../services/emailService.cjs');
+
+async function savePasswordResetOtp({ email, otp, user, expiresAt }) {
+  const id = `rst_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const cleanEmail = email.toLowerCase().trim();
+  const expiresDate = new Date(expiresAt);
+
+  memoryOtpStore.set(cleanEmail, {
+    id,
+    otp,
+    email: cleanEmail,
+    createdAt: Date.now(),
+    expiresAt,
+    attempts: 0,
+    verified: false,
+    userId: user.id,
+    userName: user.name,
+  });
+
+  if (pool) {
+    try {
+      await query(
+        `INSERT INTO public.password_resets (id, email, otp, user_id, user_name, attempts, verified, expires_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, 0, FALSE, $6, NOW())`,
+        [id, cleanEmail, otp, user.id, user.name || 'Admin', expiresDate]
+      );
+    } catch (err) {
+      console.warn('pg pool insert into password_resets failed, using memory fallback:', err.message);
+    }
+  } else if (supabase) {
+    try {
+      await supabase.from('password_resets').insert({
+        id,
+        email: cleanEmail,
+        otp,
+        user_id: user.id,
+        user_name: user.name || 'Admin',
+        attempts: 0,
+        verified: false,
+        expires_at: expiresDate.toISOString(),
+      });
+    } catch (err) {
+      console.warn('Supabase insert into password_resets notice:', err.message);
+    }
+  }
+  return id;
+}
+
+async function getRecentOtpCooldown(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  if (pool) {
+    try {
+      const res = await query(
+        `SELECT created_at FROM public.password_resets 
+         WHERE LOWER(email) = LOWER($1) 
+         ORDER BY created_at DESC LIMIT 1`,
+        [cleanEmail]
+      );
+      if (res.rows.length > 0) {
+        const diff = Date.now() - new Date(res.rows[0].created_at).getTime();
+        if (diff < OTP_COOLDOWN_MS) {
+          return Math.ceil((OTP_COOLDOWN_MS - diff) / 1000);
+        }
+      }
+    } catch (err) {
+      console.warn('pg pool query for cooldown failed, using memory fallback:', err.message);
+    }
+  }
+  const mem = memoryOtpStore.get(cleanEmail);
+  if (mem && Date.now() - mem.createdAt < OTP_COOLDOWN_MS) {
+    return Math.ceil((OTP_COOLDOWN_MS - (Date.now() - mem.createdAt)) / 1000);
+  }
+  return 0;
+}
+
+async function getActiveOtpRecord(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  if (pool) {
+    try {
+      const res = await query(
+        `SELECT id, email, otp, user_id, user_name, attempts, verified, verified_at, expires_at, created_at 
+         FROM public.password_resets 
+         WHERE LOWER(email) = LOWER($1) AND expires_at > NOW() 
+         ORDER BY created_at DESC LIMIT 1`,
+        [cleanEmail]
+      );
+      if (res.rows.length > 0) {
+        const row = res.rows[0];
+        return {
+          id: row.id,
+          email: row.email,
+          otp: row.otp,
+          userId: row.user_id,
+          userName: row.user_name,
+          attempts: row.attempts,
+          verified: row.verified,
+          verifiedAt: row.verified_at ? new Date(row.verified_at).getTime() : null,
+          expiresAt: new Date(row.expires_at).getTime(),
+          createdAt: new Date(row.created_at).getTime(),
+        };
+      }
+    } catch (err) {
+      console.warn('pg pool getActiveOtpRecord failed, using memory fallback:', err.message);
+    }
+  } else if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('password_resets')
+        .select('*')
+        .ilike('email', cleanEmail)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        const row = data[0];
+        return {
+          id: row.id,
+          email: row.email,
+          otp: row.otp,
+          userId: row.user_id,
+          userName: row.user_name,
+          attempts: row.attempts,
+          verified: row.verified,
+          verifiedAt: row.verified_at ? new Date(row.verified_at).getTime() : null,
+          expiresAt: new Date(row.expires_at).getTime(),
+          createdAt: new Date(row.created_at).getTime(),
+        };
+      }
+    } catch {}
+  }
+  return memoryOtpStore.get(cleanEmail) || null;
+}
+
+async function incrementOtpAttempts(record) {
+  const newAttempts = (record.attempts || 0) + 1;
+  record.attempts = newAttempts;
+  memoryOtpStore.set(record.email, record);
+
+  if (pool && record.id) {
+    try {
+      await query('UPDATE public.password_resets SET attempts = $1 WHERE id = $2', [newAttempts, record.id]);
+    } catch {}
+  }
+  return newAttempts;
+}
+
+async function markOtpVerified(record) {
+  const now = Date.now();
+  record.verified = true;
+  record.verifiedAt = now;
+  memoryOtpStore.set(record.email, record);
+
+  if (pool && record.id) {
+    try {
+      await query('UPDATE public.password_resets SET verified = TRUE, verified_at = NOW() WHERE id = $1', [record.id]);
+    } catch {}
+  }
+}
+
+async function clearOtpRecords(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  memoryOtpStore.delete(cleanEmail);
+
+  if (pool) {
+    try {
+      await query('DELETE FROM public.password_resets WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+    } catch {}
+  } else if (supabase) {
+    try {
+      await supabase.from('password_resets').delete().ilike('email', cleanEmail);
+    } catch {}
+  }
+}
 
 /**
  * Request Password Reset OTP
@@ -165,16 +352,15 @@ async function forgotPassword(req, res) {
     }
 
     // Rate-limiting: Cooldown period of 60 seconds between OTP requests
-    const existing = otpStore.get(cleanEmail);
-    if (existing && Date.now() - existing.createdAt < OTP_COOLDOWN_MS) {
-      const waitSeconds = Math.ceil((OTP_COOLDOWN_MS - (Date.now() - existing.createdAt)) / 1000);
+    const waitSeconds = await getRecentOtpCooldown(cleanEmail);
+    if (waitSeconds > 0) {
       return res.status(429).json({
         success: false,
         error: `Please wait ${waitSeconds} seconds before requesting another verification code.`,
       });
     }
 
-    // 1. Verify user exists in public.users (try pool if available, fallback to Supabase REST)
+    // 1. Verify user exists in public.users
     let user = null;
     if (pool) {
       try {
@@ -204,24 +390,21 @@ async function forgotPassword(req, res) {
       });
     }
 
-    // 2. Generate cryptographically random 6-digit OTP
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    // 2. Generate cryptographically secure 6-digit OTP via crypto.randomInt
+    const otp = generateSecureOtp();
     const now = Date.now();
     const expiresAt = now + OTP_EXPIRY_MS;
 
-    // Store in memory with attempt tracking
-    otpStore.set(cleanEmail, {
+    // Persist OTP with TTL and attempt tracking
+    await savePasswordResetOtp({
+      email: cleanEmail,
       otp,
-      createdAt: now,
+      user,
       expiresAt,
-      attempts: 0,
-      verified: false,
-      userId: user.id,
-      userName: user.name,
     });
 
     // 3. Dispatch Email via Gmail SMTP or fallback simulation
-    const emailResult = await sendPasswordResetOtpEmail(cleanEmail, otp, user.name || 'Admin');
+    await sendPasswordResetOtpEmail(cleanEmail, otp, user.name || 'Admin');
 
     return res.json({
       success: true,
@@ -248,16 +431,16 @@ async function verifyOtp(req, res) {
       return res.status(400).json({ success: false, error: 'Valid email and 6-digit OTP code are required' });
     }
 
-    const record = otpStore.get(cleanEmail);
+    const record = await getActiveOtpRecord(cleanEmail);
     if (!record) {
       return res.status(400).json({
         success: false,
-        error: 'No OTP request found for this email. Please request a new code.',
+        error: 'No active OTP request found for this email. Please request a new code.',
       });
     }
 
     if (Date.now() > record.expiresAt) {
-      otpStore.delete(cleanEmail);
+      await clearOtpRecords(cleanEmail);
       return res.status(400).json({
         success: false,
         error: 'OTP code has expired. Please request a new verification code.',
@@ -266,7 +449,7 @@ async function verifyOtp(req, res) {
 
     // Brute-force protection: check attempt count
     if ((record.attempts || 0) >= MAX_OTP_ATTEMPTS) {
-      otpStore.delete(cleanEmail);
+      await clearOtpRecords(cleanEmail);
       return res.status(429).json({
         success: false,
         error: 'Too many incorrect attempts. For security, this code was invalidated. Please request a new one.',
@@ -274,10 +457,10 @@ async function verifyOtp(req, res) {
     }
 
     if (record.otp !== cleanOtp) {
-      record.attempts = (record.attempts || 0) + 1;
-      const remaining = MAX_OTP_ATTEMPTS - record.attempts;
+      const attempts = await incrementOtpAttempts(record);
+      const remaining = MAX_OTP_ATTEMPTS - attempts;
       if (remaining <= 0) {
-        otpStore.delete(cleanEmail);
+        await clearOtpRecords(cleanEmail);
         return res.status(429).json({
           success: false,
           error: 'Too many incorrect attempts. This code was invalidated. Please request a new one.',
@@ -290,9 +473,7 @@ async function verifyOtp(req, res) {
     }
 
     // Mark as verified
-    record.verified = true;
-    record.verifiedAt = Date.now();
-    otpStore.set(cleanEmail, record);
+    await markOtpVerified(record);
 
     return res.json({
       success: true,
@@ -322,7 +503,7 @@ async function resetPassword(req, res) {
       });
     }
 
-    const record = otpStore.get(cleanEmail);
+    const record = await getActiveOtpRecord(cleanEmail);
     if (!record) {
       return res.status(403).json({
         success: false,
@@ -342,7 +523,7 @@ async function resetPassword(req, res) {
     }
 
     if (Date.now() > record.expiresAt + 15 * 60 * 1000) {
-      otpStore.delete(cleanEmail);
+      await clearOtpRecords(cleanEmail);
       return res.status(403).json({
         success: false,
         error: 'Password reset window expired. Please request a new code.',
@@ -352,7 +533,7 @@ async function resetPassword(req, res) {
     // 1. Hash new password with PBKDF2
     const hashedPassword = hashPasswordPbkdf2(newPassword);
 
-    // 2. Update in PostgreSQL database (try pool if available, fallback to Supabase REST/RPC)
+    // 2. Update in PostgreSQL database (try pool if available, fallback to Supabase REST)
     let updatedUser = null;
     if (pool) {
       try {
@@ -387,8 +568,8 @@ async function resetPassword(req, res) {
       });
     }
 
-    // 3. Clear OTP store record to prevent re-use
-    otpStore.delete(cleanEmail);
+    // 3. Clear OTP database record to prevent re-use
+    await clearOtpRecords(cleanEmail);
 
     return res.json({
       success: true,
@@ -409,4 +590,5 @@ module.exports = {
   verifyOtp,
   resetPassword,
 };
+
 

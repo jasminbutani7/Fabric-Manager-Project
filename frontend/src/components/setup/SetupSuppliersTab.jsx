@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useFactorySetup } from '../../context/domain';
 import CustomSelect from '../common/CustomSelect';
+import { formatWhatsAppPhone } from '../../utils/whatsappNotification';
 
 export default function SetupSuppliersTab({
   onAddSupplier,
@@ -274,7 +275,7 @@ export default function SetupSuppliersTab({
                       </a>
 
                       <a
-                        href={`https://wa.me/91${(s.whatsapp || s.phone || '').replace(/\D/g, '')}`}
+                        href={`https://wa.me/${formatWhatsAppPhone(s.whatsapp || s.phone)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="py-1.5 px-3 bg-green-500 hover:bg-green-600 active:scale-95 text-white shadow-xs rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all"

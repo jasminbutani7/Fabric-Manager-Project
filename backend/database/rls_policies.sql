@@ -4,7 +4,7 @@
 -- =============================================================================
 
 -- 1. Helper function: Resolve current authenticated tenant ID
--- Checks Native Supabase JWT 'sub', session header 'x-tenant-id', or JWT claims
+-- Checks Native Supabase JWT 'sub', verified JWT claims, or session fallback
 CREATE OR REPLACE FUNCTION public.current_tenant_id()
 RETURNS TEXT
 LANGUAGE sql
@@ -13,10 +13,12 @@ SECURITY DEFINER
 AS $$
   SELECT COALESCE(
     NULLIF(current_setting('request.jwt.claims', true)::json->>'sub', ''),
-    NULLIF(current_setting('request.headers', true)::json->>'x-tenant-id', ''),
-    NULLIF(current_setting('request.jwt.claims', true)::json->>'user_id', '')
+    NULLIF(current_setting('request.jwt.claims', true)::json->>'tenant_id', ''),
+    NULLIF(current_setting('request.jwt.claims', true)::json->>'user_id', ''),
+    NULLIF(current_setting('request.headers', true)::json->>'x-tenant-id', '')
   );
 $$;
+
 
 -- 2. Helper function: Detect backend service_role / superuser execution
 CREATE OR REPLACE FUNCTION public.is_service_role()
@@ -98,4 +100,12 @@ BEGIN
             t, t
         );
     END LOOP;
+
+    -- Strict service-only access for password_resets (never exposed via PostgREST client queries)
+    ALTER TABLE public.password_resets ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "password_resets_service_only" ON public.password_resets;
+    CREATE POLICY "password_resets_service_only" ON public.password_resets
+        FOR ALL
+        USING (public.is_service_role());
 END $$;
+
